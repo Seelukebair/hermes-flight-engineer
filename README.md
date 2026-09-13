@@ -41,6 +41,9 @@ retaining the same plugin API. llama.cpp is the first implementation; Ollama,
 vLLM, and other runtimes should be adapters, not conditionals in the Hermes
 plugin.
 
+Tracked runtime investigations, including DwarfStar (`ds4`), live in
+[ROADMAP.md](ROADMAP.md).
+
 ## Trusted Host Install
 
 Flight Engineer intentionally controls a root-owned inference service. Hermes's
