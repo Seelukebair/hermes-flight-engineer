@@ -28,12 +28,15 @@
     const active = Math.ceil(percent / 100 * 16);
     const zone = percent >= 90 ? "danger" : percent >= 70 ? "warning" : "normal";
     return h("div", { className: "flight-engineer-meter", "data-zone": zone },
-      h("div", { className: "flight-engineer-meter-copy" }, h("span", null, props.label), h("strong", null, props.value)),
-      h("div", { className: "flight-engineer-meter-bars", "aria-label": props.label + " " + props.value },
-        Array.from({ length: 16 }, function (_, index) {
-          return h("i", { key: index, className: index < active ? "is-lit" : "", style: { height: (7 + index * 0.8) + "px" } });
-        })),
-      h("div", { className: "flight-engineer-meter-scale", "aria-hidden": "true" }, h("span", null, props.minLabel), h("span", null, props.maxLabel)));
+      h("span", { className: "flight-engineer-meter-label" }, props.label),
+      h("div", { className: "flight-engineer-meter-track" },
+        h("span", { "aria-hidden": "true" }, props.minLabel),
+        h("div", { className: "flight-engineer-meter-bars", "aria-label": props.label + " " + props.value },
+          Array.from({ length: 16 }, function (_, index) {
+            return h("i", { key: index, className: index < active ? "is-lit" : "" });
+          })),
+        h("span", { "aria-hidden": "true" }, props.maxLabel)),
+      h("strong", { className: "flight-engineer-meter-value" }, props.value));
   }
 
   function Field(props) {
@@ -47,10 +50,12 @@
     const active = Math.round(percent / 100 * 14);
     function adjust(delta) { props.onChange(Math.max(props.min, Math.min(props.max, value + delta))); }
     return h("div", { className: "flight-engineer-stepper", "data-disabled": String(props.disabled) },
-      h("div", { className: "flight-engineer-stepper-head" }, h("span", null, props.label), h("strong", null, number(value))),
-      h("div", { className: "flight-engineer-setting-leds", "aria-hidden": "true" },
-        Array.from({ length: 14 }, function (_, index) { return h("i", { key: index, className: index < active ? "is-lit" : "" }); })),
-      h("div", { className: "flight-engineer-meter-scale", "aria-hidden": "true" }, h("span", null, number(props.min)), h("span", null, number(props.max))),
+      h("span", { className: "flight-engineer-stepper-label" }, props.label),
+      h("div", { className: "flight-engineer-setting-track", "aria-hidden": "true" },
+        h("span", null, number(props.min)),
+        h("div", { className: "flight-engineer-setting-leds" },
+          Array.from({ length: 14 }, function (_, index) { return h("i", { key: index, className: index < active ? "is-lit" : "" }); })),
+        h("span", null, number(props.max))),
       h("div", { className: "flight-engineer-stepper-controls" },
         h("button", { type: "button", title: "Decrease " + props.label, "aria-label": "Decrease " + props.label, disabled: props.disabled || value <= props.min, onClick: function () { adjust(-step); } }, "-"),
         h("input", { type: "number", min: props.min, max: props.max, step: step, value: value, disabled: props.disabled,
