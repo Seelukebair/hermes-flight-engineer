@@ -5,4 +5,5 @@ author: "Luke Bair"
 kind: standalone
 provides_tools:
   - flight_engineer
-
+provides_hooks:
+  - pre_llm_call

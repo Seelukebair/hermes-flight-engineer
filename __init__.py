@@ -3,10 +3,32 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from .flight_engineer import FlightEngineer, FlightEngineerError
+
+
+_PROFILE_INTENT = re.compile(
+    r"\b(?:flight engineer|backend profile|model profile|daily driver|smart(?:er)? model)\b"
+    r"|\b(?:switch|change|load|activate|use|rollback|revert)\b.{0,48}"
+    r"\b(?:backend|inference|local model|model configuration|profile)\b",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _profile_intent_context(user_message: str = "", **_: Any) -> dict[str, str] | None:
+    """Expose the operating contract only when a turn concerns backend profiles."""
+    if not _PROFILE_INTENT.search(str(user_message or "")):
+        return None
+    return {"context": (
+        "Flight Engineer backend-profile intent detected. Use the `flight_engineer` tool to call status and list "
+        "before proposing a change. The stable Hermes route is gemma4-thinker-local/gemma4-thinker and may be "
+        "used by native Mixture of Agents. Profiles are mutually exclusive configurations behind that route, not "
+        "simultaneously loaded MoA models. Set confirm_interrupt=true only when the user explicitly requested the "
+        "disruptive switch. Report the returned active profile and service health; never infer success."
+    )}
 
 
 def _dispatch(args: dict[str, Any], **_: Any) -> str:
@@ -88,6 +110,7 @@ def register(ctx: Any) -> None:
     )
     skill = Path(__file__).parent / "skills" / "flight-engineer" / "SKILL.md"
     ctx.register_skill("flight-engineer", skill)
+    ctx.register_hook("pre_llm_call", _profile_intent_context)
     ctx.register_cli_command(
         name="flight-engineer",
         help="Manage validated inference backend profiles",
@@ -95,4 +118,3 @@ def register(ctx: Any) -> None:
         setup_fn=_setup_cli,
         handler_fn=_cli_handler,
     )
-
