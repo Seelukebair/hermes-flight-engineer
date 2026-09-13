@@ -16,6 +16,7 @@
 .flight-engineer-meter[data-zone="warning"] .is-lit { background:#d8a12d; }
 .flight-engineer-meter[data-zone="danger"] .is-lit { background:hsl(var(--destructive)); }
 .flight-engineer-meter-bars .is-lit:last-of-type { animation:flight-engineer-pulse 1.5s ease-in-out infinite; }
+.flight-engineer-meter-scale { display:flex; justify-content:space-between; margin-top:.15rem; color:hsl(var(--muted-foreground)/.7); font-size:.625rem; text-transform:uppercase; }
 @keyframes flight-engineer-pulse { 50% { opacity:.55; } }
 .flight-engineer-live-copy { color:hsl(var(--muted-foreground)); font:.75rem ui-monospace,SFMono-Regular,Menlo,monospace; }
 .flight-engineer-profiles { display:flex; flex-direction:column; gap:.625rem; }

@@ -168,6 +168,7 @@ class FlightEngineer:
             "llamacpp:requests_processing", "llamacpp:requests_deferred",
             "llamacpp:prompt_tokens_total", "llamacpp:prompt_tokens_cached_total",
             "llamacpp:tokens_predicted_total", "llamacpp:tokens_predicted_seconds_total",
+            "llamacpp:prompt_tokens_seconds", "llamacpp:predicted_tokens_seconds",
         }
         metrics: dict[str, float] = {}
         for line in content.splitlines():
@@ -190,6 +191,7 @@ class FlightEngineer:
             total_slots = len(slot_rows)
             active_slots = sum(1 for slot in slot_rows if isinstance(slot, dict) and slot.get("is_processing"))
             contexts = [int(slot.get("n_ctx") or 0) for slot in slot_rows if isinstance(slot, dict)]
+            context_used = [int(slot.get("n_prompt_tokens") or 0) for slot in slot_rows if isinstance(slot, dict)]
             gpu_raw = self._run([
                 "nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit",
                 "--format=csv,noheader,nounits",
@@ -209,10 +211,12 @@ class FlightEngineer:
                 "queued": int(metrics.get("requests_deferred", 0)),
                 "slots": total_slots,
                 "context_per_slot": max(contexts, default=0),
+                "context_tokens_used": max(context_used, default=0),
                 "tokens_predicted_total": int(metrics.get("tokens_predicted_total", 0)),
                 "prompt_tokens_total": int(metrics.get("prompt_tokens_total", 0)),
                 "prompt_tokens_cached_total": int(metrics.get("prompt_tokens_cached_total", 0)),
                 "lifetime_tokens_per_second": round(metrics.get("tokens_predicted_total", 0) / predicted_seconds, 2) if predicted_seconds else 0,
+                "current_tokens_per_second": round(metrics.get("predicted_tokens_seconds", 0), 2),
             },
             "system": {
                 "gpu_percent": gpu[0], "vram_used_mb": gpu[1], "vram_total_mb": gpu[2],
