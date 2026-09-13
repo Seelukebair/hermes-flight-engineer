@@ -20,7 +20,9 @@ simultaneously loaded models.
 - `flight_engineer` agent tool: status, list, guarded use, default selection,
   and rollback.
 - `hermes flight-engineer`: the same operations for operators.
-- `flight-engineer` skill: teaches Hermes the safety and native MoA boundary.
+- `flight-engineer:flight-engineer` plugin skill: teaches Hermes the safety and
+  native MoA boundary. Plugin skills are namespaced in current Hermes; the bare
+  name is not valid for `--skills` preloading.
 - Dashboard tab: live inference/system meters, collapsed profile rows, bounded
   tuning controls, active/default selection, and a link to native MoA settings.
 - Root-owned control wrapper: permits named profile operations and bounded JSON

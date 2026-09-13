@@ -9,6 +9,11 @@ Hermes is the orchestrator. Flight Engineer manages tested configurations for
 the supporting local inference backend. It does not replace Hermes model
 selection, fallbacks, delegation, or Mixture of Agents.
 
+This plugin skill is exposed to Hermes as
+`flight-engineer:flight-engineer`. Use that qualified name for explicit skill
+loading; normal profile-intent turns also receive the plugin's bounded context
+hook.
+
 Use the `flight_engineer` tool to inspect status and available profiles. The
 stable Hermes provider/model pair remains
 `gemma4-thinker-local/gemma4-thinker`, including when native MoA uses it as a
