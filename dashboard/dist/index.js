@@ -68,11 +68,6 @@
       h("h4", null, props.title), h("div", { className: "flight-engineer-fields" }, props.children));
   }
 
-  function MeterSection(props) {
-    return h("section", { className: "flight-engineer-meter-section" },
-      h("h4", null, props.title), h("div", { className: "flight-engineer-meters" }, props.children));
-  }
-
   function ProfileRow(props) {
     const profile = props.profile;
     const locked = profile.status === "production";
@@ -152,16 +147,13 @@
         h(CardContent, null, h("div", { className: "flight-engineer-summary" }, h(Stat, { label: "Active profile", value: status && status.active_profile }), h(Stat, { label: "Default after reboot", value: status && status.default_profile }), h(Stat, { label: "Hermes route", value: route }), h(Stat, { label: "Context", value: status && number(status.context_length) }), h(Stat, { label: "Backend health", value: healthy ? "all services active" : "attention required" })))),
       h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Live inference"), h("div", { className: "flight-engineer-stat-label" }, telemetry ? "Updates every 2 seconds" : "Telemetry unavailable")), h("div", { className: "flight-engineer-live-copy" }, number(inf.current_tokens_per_second) + " tok/s now | " + number(inf.queued) + " queued"))),
         h(CardContent, null, h("div", { className: "flight-engineer-meter-layout" },
-          h(MeterSection, { title: "Inference" },
-            h(LevelMeter, { label: "Active slots", percent: slotPercent, value: number(inf.active) + " / " + number(inf.slots), minLabel: "0", maxLabel: number(inf.slots) }),
-            h(LevelMeter, { label: "Context high-water", percent: contextPercent, value: number(inf.context_tokens_used) + " / " + number(inf.context_per_slot), minLabel: "0", maxLabel: number(inf.context_per_slot) })),
-          h(MeterSection, { title: "Accelerator" },
-            h(LevelMeter, { label: "GPU load", percent: sys.gpu_percent, value: number(sys.gpu_percent) + "% | " + number(sys.gpu_temperature_c) + " C", minLabel: "0%", maxLabel: "100%" }),
-            h(LevelMeter, { label: "VRAM", percent: vramPercent, value: number(sys.vram_used_mb) + " / " + number(sys.vram_total_mb) + " MB", minLabel: "0", maxLabel: number(sys.vram_total_mb) + " MB" }),
-            h(LevelMeter, { label: "GPU power", percent: powerPercent, value: number(sys.gpu_power_w) + " W", minLabel: "0 W", maxLabel: number(sys.gpu_power_limit_w) + " W" })),
-          h(MeterSection, { title: "Host" },
-            h(LevelMeter, { label: "CPU load", percent: sys.cpu_load_percent, value: number(sys.cpu_load_percent) + "%", minLabel: "0%", maxLabel: "100%" }),
-            h(LevelMeter, { label: "System memory", percent: ramPercent, value: number(sys.ram_used_mb) + " / " + number(sys.ram_total_mb) + " MB", minLabel: "0", maxLabel: number(sys.ram_total_mb) + " MB" }))))),
+          h(LevelMeter, { label: "Active slots", percent: slotPercent, value: number(inf.active) + " / " + number(inf.slots), minLabel: "0", maxLabel: number(inf.slots) }),
+          h(LevelMeter, { label: "Context high-water", percent: contextPercent, value: number(inf.context_tokens_used) + " / " + number(inf.context_per_slot), minLabel: "0", maxLabel: number(inf.context_per_slot) }),
+          h(LevelMeter, { label: "GPU load", percent: sys.gpu_percent, value: number(sys.gpu_percent) + "% | " + number(sys.gpu_temperature_c) + " C", minLabel: "0%", maxLabel: "100%" }),
+          h(LevelMeter, { label: "VRAM", percent: vramPercent, value: number(sys.vram_used_mb) + " / " + number(sys.vram_total_mb) + " MB", minLabel: "0", maxLabel: number(sys.vram_total_mb) + " MB" }),
+          h(LevelMeter, { label: "GPU power", percent: powerPercent, value: number(sys.gpu_power_w) + " W", minLabel: "0 W", maxLabel: number(sys.gpu_power_limit_w) + " W" }),
+          h(LevelMeter, { label: "CPU load", percent: sys.cpu_load_percent, value: number(sys.cpu_load_percent) + "%", minLabel: "0%", maxLabel: "100%" }),
+          h(LevelMeter, { label: "System memory", percent: ramPercent, value: number(sys.ram_used_mb) + " / " + number(sys.ram_total_mb) + " MB", minLabel: "0", maxLabel: number(sys.ram_total_mb) + " MB" })))),
       h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Model profiles"), h("div", { className: "flight-engineer-stat-label" }, "Profile name and primary model stay visible; expand to tune runtime settings")), h("div", { className: "flight-engineer-actions" }, h("label", { className: "flight-engineer-confirm" }, h("input", { type: "checkbox", checked: confirmed, onChange: function (e) { setConfirmed(e.target.checked); } }), "Allow interrupting reloads"), h(Button, { outlined: true, onClick: function () { window.location.href = "/models"; } }, "Open MoA settings")))),
         h(CardContent, null, error ? h("p", { className: "flight-engineer-error" }, error) : null, notice ? h("p", { className: "flight-engineer-notice" }, notice) : null, h("div", { className: "flight-engineer-profiles" }, profiles.map(function (profile) { return h(ProfileRow, { key: profile.id, profile: profile, busy: busy, confirmed: confirmed, onSave: saveProfile, onClone: cloneProfile, onApply: applyProfile, onSwitch: switchProfile, onDefault: setDefaultProfile }); })))));
   }
