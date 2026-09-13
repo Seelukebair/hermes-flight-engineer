@@ -1,0 +1,8 @@
+name: flight-engineer
+version: "0.1.0"
+description: "Validated inference backend profiles, guarded switching, and native Hermes MoA awareness."
+author: "Luke Bair"
+kind: standalone
+provides_tools:
+  - flight_engineer
+

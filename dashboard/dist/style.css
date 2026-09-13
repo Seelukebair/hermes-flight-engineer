@@ -1,0 +1,82 @@
+.flight-engineer-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.flight-engineer-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.flight-engineer-stat {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.2);
+  padding: 0.75rem;
+  min-width: 0;
+}
+
+.flight-engineer-stat-label {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
+.flight-engineer-stat-value {
+  margin-top: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.flight-engineer-profiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.flight-engineer-profile {
+  border: 1px solid hsl(var(--border));
+  padding: 0.875rem;
+}
+
+.flight-engineer-profile[data-active="true"] {
+  border-color: hsl(var(--primary));
+}
+
+.flight-engineer-profile-head,
+.flight-engineer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.flight-engineer-profile-meta {
+  color: hsl(var(--muted-foreground));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.flight-engineer-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
+.flight-engineer-error {
+  color: hsl(var(--destructive));
+  font-size: 0.875rem;
+}
+
+@media (max-width: 900px) {
+  .flight-engineer-summary,
+  .flight-engineer-profiles {
+    grid-template-columns: 1fr;
+  }
+}
+
