@@ -41,13 +41,30 @@ retaining the same plugin API. llama.cpp is the first implementation; Ollama,
 vLLM, and other runtimes should be adapters, not conditionals in the Hermes
 plugin.
 
-## Install
+## Trusted Host Install
+
+Flight Engineer intentionally controls a root-owned inference service. Hermes's
+community-plugin scanner therefore classifies it as dangerous and blocks
+`hermes plugins install`; that is the correct default for an arbitrary plugin
+from the internet. Do not disable `plugins.scan_on_install` globally.
+
+After reviewing the checkout, install it explicitly as a trusted local plugin:
 
 ```bash
-hermes plugins install Seelukebair/hermes-flight-engineer --no-enable
-sudo FLIGHT_ENGINEER_OPERATOR="$USER" bash ~/.hermes/plugins/flight-engineer/deploy/install-host-control.sh
+git clone https://github.com/Seelukebair/hermes-flight-engineer.git \
+  ~/.hermes/plugins/flight-engineer
+sudo FLIGHT_ENGINEER_OPERATOR="$USER" \
+  bash ~/.hermes/plugins/flight-engineer/deploy/install-host-control.sh
+hermes plugins doctor ~/.hermes/plugins/flight-engineer --ci
+hermes plugins compat ~/.hermes/plugins/flight-engineer
 hermes plugins enable flight-engineer
 ```
+
+The host installer is intentionally separate from plugin registration. It
+installs a root-owned wrapper and one narrow sudoers rule. The wrapper accepts
+only `use PROFILE_ID` and `rollback`, validates the profile identifier, and
+cannot forward force flags or arbitrary arguments. Profile manifests and the
+underlying manager must also remain root-owned.
 
 Restart the dashboard once to mount `plugin_api.py`; a normal dashboard plugin
 rescan is sufficient for later frontend-only changes.
@@ -72,4 +89,3 @@ hermes plugins compat .
 ## License
 
 MIT
-
