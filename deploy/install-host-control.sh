@@ -9,6 +9,7 @@ fi
 plugin_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 operator="${FLIGHT_ENGINEER_OPERATOR:-administrator}"
 
+install -d -o root -g root -m 0755 /usr/local/libexec
 install -o root -g root -m 0755 \
   "$plugin_root/deploy/flight-engineer-control" \
   /usr/local/libexec/flight-engineer-control
@@ -20,4 +21,3 @@ chmod 0440 /etc/sudoers.d/hermes-flight-engineer
 visudo -cf /etc/sudoers.d/hermes-flight-engineer
 
 echo "installed constrained Flight Engineer host control for ${operator}"
-
