@@ -52,7 +52,23 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(context.hook[0], "pre_llm_call")
         self.assertEqual(context.cli["name"], "flight-engineer")
 
+    def test_tool_and_cli_expose_default_selection(self):
+        context = FakeContext()
+        PLUGIN.register(context)
+        actions = context.tool["schema"]["parameters"]["properties"]["action"]["enum"]
+        self.assertIn("set_default", actions)
+        content = (ROOT / "__init__.py").read_text(encoding="utf-8")
+        self.assertIn('commands.add_parser("set-default"', content)
+
+    def test_dashboard_and_wrapper_keep_bounded_controls(self):
+        dashboard = (ROOT / "dashboard" / "dist" / "index.js").read_text(encoding="utf-8")
+        wrapper = (ROOT / "deploy" / "flight-engineer-control").read_text(encoding="utf-8")
+        self.assertIn("Max concurrent inference", dashboard)
+        self.assertIn("Live inference", dashboard)
+        self.assertIn("Make default", dashboard)
+        self.assertIn('exec "$MANAGER" update "$profile"', wrapper)
+        self.assertNotIn("eval ", wrapper)
+
 
 if __name__ == "__main__":
     unittest.main()
-

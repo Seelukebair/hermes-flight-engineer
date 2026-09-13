@@ -17,17 +17,18 @@ simultaneously loaded models.
 
 ## Surfaces
 
-- `flight_engineer` agent tool: status, list, guarded use, and rollback.
+- `flight_engineer` agent tool: status, list, guarded use, default selection,
+  and rollback.
 - `hermes flight-engineer`: the same operations for operators.
 - `flight-engineer` skill: teaches Hermes the safety and native MoA boundary.
-- Dashboard tab: current route, service state, profile inventory, and confirmed
-  switching, with a link to Hermes's native MoA settings.
-- Root-owned control wrapper: permits only `use PROFILE_ID` and `rollback`; no
-  arbitrary shell, runtime arguments, paths, force switch, or service names.
+- Dashboard tab: live inference/system meters, collapsed profile rows, bounded
+  tuning controls, active/default selection, and a link to native MoA settings.
+- Root-owned control wrapper: permits named profile operations and bounded JSON
+  edits on stdin; no arbitrary shell, paths, images, force switch, or services.
 
 ## Current Driver Contract
 
-Version 0.1 targets the JSON status and profile-manifest contract provided by
+Version 0.2 targets the JSON status and profile-manifest contract provided by
 `/usr/local/bin/jarvis-model-profile`. Paths can be overridden with:
 
 ```text
@@ -65,9 +66,16 @@ hermes plugins enable flight-engineer
 
 The host installer is intentionally separate from plugin registration. It
 installs a root-owned wrapper and one narrow sudoers rule. The wrapper accepts
-only `use PROFILE_ID` and `rollback`, validates the profile identifier, and
-cannot forward force flags or arbitrary arguments. Profile manifests and the
-underlying manager must also remain root-owned.
+only enumerated operations, validates every profile id, and cannot forward
+force flags or arbitrary arguments. Runtime edits are parsed and validated by
+the root-owned manager from an 8 KiB JSON request on stdin. Every edit is backed
+up; accepted production runtime settings must first be duplicated to a tuning
+profile. Profile manifests and the manager remain root-owned.
+
+`Load profile` activates a profile now. `Make default` selects what loads once
+at the next host boot; normal service reloads preserve the current selection.
+Saving an active tuning profile does not silently restart inference. Use the
+separate confirmed `Apply & reload` action.
 
 Restart the dashboard once to mount `plugin_api.py`; a normal dashboard plugin
 rescan is sufficient for later frontend-only changes.

@@ -11,8 +11,10 @@ documented trusted-host installation procedure.
 
 The plugin never accepts shell text. Profile ids are restricted to lowercase
 letters, numbers, and hyphens. Privileged operations pass through a root-owned
-wrapper that exposes only profile activation and rollback without a force
-option. The authoritative manager and profile manifests must not be writable
+wrapper that exposes only enumerated profile operations without a force option.
+Profile edits cross that boundary as bounded JSON on stdin and are allowlisted,
+range-checked, backed up, and restricted to tuning/experimental runtime fields.
+The authoritative manager and profile manifests must not be writable
 by the Hermes runtime account. The host installer verifies that the resolved
 manager, profile directory, and manifests are root-owned and not group/world
 writable before creating the sudo rule.

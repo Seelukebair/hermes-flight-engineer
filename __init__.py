@@ -46,6 +46,8 @@ def _dispatch(args: dict[str, Any], **_: Any) -> str:
             )
         elif action == "rollback":
             result = engineer.rollback(confirm_interrupt=args.get("confirm_interrupt") is True)
+        elif action == "set_default":
+            result = engineer.set_default(str(args.get("profile_id") or ""))
         else:
             raise FlightEngineerError(f"unsupported action: {action}")
         return json.dumps({"ok": True, "result": result}, sort_keys=True)
@@ -65,6 +67,8 @@ def _cli_handler(args: Any) -> None:
             result = engineer.use(args.profile, confirm_interrupt=args.confirm_interrupt)
         elif command == "rollback":
             result = engineer.rollback(confirm_interrupt=args.confirm_interrupt)
+        elif command == "set-default":
+            result = engineer.set_default(args.profile)
         else:
             raise FlightEngineerError(f"unsupported command: {command}")
         print(json.dumps(result, indent=2, sort_keys=True))
@@ -81,6 +85,8 @@ def _setup_cli(parser: Any) -> None:
     use.add_argument("--confirm-interrupt", action="store_true")
     rollback = commands.add_parser("rollback", help="Return to the preceding accepted profile")
     rollback.add_argument("--confirm-interrupt", action="store_true")
+    set_default = commands.add_parser("set-default", help="Select the profile loaded on the next host boot")
+    set_default.add_argument("profile")
     parser.set_defaults(func=_cli_handler)
 
 
@@ -97,7 +103,7 @@ def register(ctx: Any) -> None:
                 "type": "object",
                 "required": ["action"],
                 "properties": {
-                    "action": {"type": "string", "enum": ["status", "list", "use", "rollback"]},
+                    "action": {"type": "string", "enum": ["status", "list", "use", "rollback", "set_default"]},
                     "profile_id": {"type": "string", "description": "Profile id returned by list."},
                     "confirm_interrupt": {
                         "type": "boolean",

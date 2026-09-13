@@ -1,82 +1,48 @@
-.flight-engineer-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-width: 0;
-}
-
-.flight-engineer-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.flight-engineer-stat {
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--muted) / 0.2);
-  padding: 0.75rem;
-  min-width: 0;
-}
-
-.flight-engineer-stat-label {
-  color: hsl(var(--muted-foreground));
-  font-size: 0.75rem;
-}
-
-.flight-engineer-stat-value {
-  margin-top: 0.25rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.875rem;
-  overflow-wrap: anywhere;
-}
-
-.flight-engineer-profiles {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.flight-engineer-profile {
-  border: 1px solid hsl(var(--border));
-  padding: 0.875rem;
-}
-
-.flight-engineer-profile[data-active="true"] {
-  border-color: hsl(var(--primary));
-}
-
-.flight-engineer-profile-head,
-.flight-engineer-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.flight-engineer-profile-meta {
-  color: hsl(var(--muted-foreground));
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-.flight-engineer-confirm {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: hsl(var(--muted-foreground));
-  font-size: 0.75rem;
-}
-
-.flight-engineer-error {
-  color: hsl(var(--destructive));
-  font-size: 0.875rem;
-}
-
-@media (max-width: 900px) {
-  .flight-engineer-summary,
-  .flight-engineer-profiles {
-    grid-template-columns: 1fr;
-  }
-}
-
+.flight-engineer-page { display:flex; flex-direction:column; gap:1rem; min-width:0; }
+.flight-engineer-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.75rem; }
+.flight-engineer-stat { border:1px solid hsl(var(--border)); background:hsl(var(--muted)/.2); padding:.75rem; min-width:0; }
+.flight-engineer-stat-label { color:hsl(var(--muted-foreground)); font-size:.75rem; }
+.flight-engineer-stat-value { margin-top:.25rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.875rem; overflow-wrap:anywhere; }
+.flight-engineer-profile-head,.flight-engineer-actions,.flight-engineer-summary-actions { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+.flight-engineer-actions,.flight-engineer-summary-actions { justify-content:flex-end; flex-wrap:wrap; }
+.flight-engineer-meters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem 1.25rem; }
+.flight-engineer-meter { min-width:0; }
+.flight-engineer-meter-copy { display:flex; justify-content:space-between; gap:.75rem; font-size:.75rem; margin-bottom:.35rem; }
+.flight-engineer-meter-copy span { color:hsl(var(--muted-foreground)); }
+.flight-engineer-meter-copy strong { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; overflow-wrap:anywhere; text-align:right; }
+.flight-engineer-meter-bars { height:22px; display:flex; align-items:flex-end; gap:3px; }
+.flight-engineer-meter-bars i { display:block; width:4px; flex:1 1 4px; max-width:8px; min-width:3px; background:hsl(var(--muted-foreground)/.18); transition:background-color .25s,opacity .25s; }
+.flight-engineer-meter[data-zone="normal"] .is-lit { background:hsl(var(--primary)); }
+.flight-engineer-meter[data-zone="warning"] .is-lit { background:#d8a12d; }
+.flight-engineer-meter[data-zone="danger"] .is-lit { background:hsl(var(--destructive)); }
+.flight-engineer-meter-bars .is-lit:last-of-type { animation:flight-engineer-pulse 1.5s ease-in-out infinite; }
+@keyframes flight-engineer-pulse { 50% { opacity:.55; } }
+.flight-engineer-live-copy { color:hsl(var(--muted-foreground)); font:.75rem ui-monospace,SFMono-Regular,Menlo,monospace; }
+.flight-engineer-profiles { display:flex; flex-direction:column; gap:.625rem; }
+.flight-engineer-profile { border:1px solid hsl(var(--border)); min-width:0; }
+.flight-engineer-profile[data-active="true"] { border-color:hsl(var(--primary)); }
+.flight-engineer-profile summary { list-style:none; display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.75rem; cursor:pointer; }
+.flight-engineer-profile summary::-webkit-details-marker { display:none; }
+.flight-engineer-profile-identity { display:grid; grid-template-columns:minmax(12rem,1fr) minmax(12rem,1.4fr); align-items:center; gap:1rem; min-width:0; flex:1; }
+.flight-engineer-profile-name { min-width:0; width:100%; border:0; border-bottom:1px solid transparent; background:transparent; color:inherit; font:inherit; font-weight:600; padding:.25rem 0; }
+.flight-engineer-profile-name:focus { outline:0; border-bottom-color:hsl(var(--primary)); }
+.flight-engineer-primary-model { color:hsl(var(--muted-foreground)); font:.75rem ui-monospace,SFMono-Regular,Menlo,monospace; overflow-wrap:anywhere; }
+.flight-engineer-chevron { color:hsl(var(--muted-foreground)); transition:transform .15s; }
+.flight-engineer-profile[open] .flight-engineer-chevron { transform:rotate(180deg); }
+.flight-engineer-profile-body { border-top:1px solid hsl(var(--border)); padding:.875rem; }
+.flight-engineer-profile-meta { color:hsl(var(--muted-foreground)); font-size:.75rem; margin-bottom:.75rem; }
+.flight-engineer-lock-note { border-left:2px solid hsl(var(--primary)); padding:.45rem .65rem; margin-bottom:.75rem; color:hsl(var(--muted-foreground)); font-size:.75rem; }
+.flight-engineer-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; }
+.flight-engineer-field { display:flex; flex-direction:column; gap:.3rem; color:hsl(var(--muted-foreground)); font-size:.75rem; }
+.flight-engineer-field input,.flight-engineer-field select,.flight-engineer-clone input { width:100%; height:2.25rem; border:1px solid hsl(var(--border)); background:hsl(var(--background)); color:inherit; padding:0 .55rem; border-radius:4px; }
+.flight-engineer-field input:disabled,.flight-engineer-field select:disabled { opacity:.55; cursor:not-allowed; }
+.flight-engineer-toggle { display:flex; align-items:center; gap:.5rem; min-height:2.25rem; color:hsl(var(--muted-foreground)); font-size:.75rem; }
+.flight-engineer-clone { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:.5rem; margin-top:.875rem; }
+.flight-engineer-profile-body>.flight-engineer-actions { margin-top:.875rem; }
+.flight-engineer-confirm { display:flex; align-items:center; gap:.5rem; color:hsl(var(--muted-foreground)); font-size:.75rem; }
+.flight-engineer-error,.flight-engineer-notice { border-left:2px solid; padding:.5rem .75rem; font-size:.8rem; }
+.flight-engineer-error { color:hsl(var(--destructive)); }
+.flight-engineer-notice { color:hsl(var(--primary)); }
+@media (prefers-reduced-motion:reduce) { .flight-engineer-meter-bars .is-lit:last-of-type { animation:none; } }
+@media (max-width:900px) { .flight-engineer-summary,.flight-engineer-meters,.flight-engineer-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } .flight-engineer-profile-identity { grid-template-columns:1fr; gap:.25rem; } }
+@media (max-width:600px) { .flight-engineer-summary,.flight-engineer-meters,.flight-engineer-fields,.flight-engineer-clone { grid-template-columns:1fr; } .flight-engineer-profile-head,.flight-engineer-profile summary { align-items:flex-start; flex-direction:column; } .flight-engineer-summary-actions { width:100%; justify-content:space-between; } }

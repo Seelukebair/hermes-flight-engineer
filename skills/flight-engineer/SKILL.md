@@ -31,3 +31,9 @@ active MoA request. Treat `tuning` and `experimental` profiles as evaluations,
 not accepted production defaults. Use Hermes's native Models/MoA settings to
 choose where the stable local route participates.
 
+Active and default are distinct. `use` loads a profile immediately and is
+interrupting. `set_default` changes only the profile selected on the next host
+boot and does not interrupt current inference. Call `set_default` only when the
+user explicitly asks to make a profile the default, then report both returned
+active and default profile ids. Never imply that changing the default also
+loaded the profile.

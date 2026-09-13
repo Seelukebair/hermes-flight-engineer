@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Root-owned privilege boundary. It deliberately exposes no force, reload,
-# runtime-argument, path, image, or service controls.
+# Root-owned privilege boundary. Profile edits are bounded JSON on stdin and
+# validated by the manager; paths, images, services, and force remain hidden.
 MANAGER="${FLIGHT_ENGINEER_MANAGER:-/usr/local/bin/jarvis-model-profile}"
 
 case "${1:-}" in
@@ -21,9 +21,41 @@ case "${1:-}" in
     fi
     exec "$MANAGER" rollback
     ;;
+  apply)
+    profile="${2:-}"
+    if [[ $# -ne 2 || ! "$profile" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]]; then
+      echo "usage: flight-engineer-control apply PROFILE_ID" >&2
+      exit 2
+    fi
+    exec "$MANAGER" use "$profile" --reload
+    ;;
+  update)
+    profile="${2:-}"
+    if [[ $# -ne 2 || ! "$profile" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]]; then
+      echo "usage: flight-engineer-control update PROFILE_ID" >&2
+      exit 2
+    fi
+    exec "$MANAGER" update "$profile"
+    ;;
+  clone)
+    source="${2:-}"
+    target="${3:-}"
+    if [[ $# -ne 3 || ! "$source" =~ ^[a-z0-9][a-z0-9-]{0,63}$ || ! "$target" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]]; then
+      echo "usage: flight-engineer-control clone SOURCE_ID TARGET_ID" >&2
+      exit 2
+    fi
+    exec "$MANAGER" clone "$source" "$target"
+    ;;
+  set-default)
+    profile="${2:-}"
+    if [[ $# -ne 2 || ! "$profile" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]]; then
+      echo "usage: flight-engineer-control set-default PROFILE_ID" >&2
+      exit 2
+    fi
+    exec "$MANAGER" set-default "$profile"
+    ;;
   *)
-    echo "usage: flight-engineer-control use PROFILE_ID | rollback" >&2
+    echo "usage: flight-engineer-control use PROFILE_ID | apply PROFILE_ID | update PROFILE_ID | clone SOURCE_ID TARGET_ID | set-default PROFILE_ID | rollback" >&2
     exit 2
     ;;
 esac
-

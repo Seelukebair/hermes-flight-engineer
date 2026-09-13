@@ -26,11 +26,17 @@ class FlightEngineerTests(unittest.TestCase):
             "id": "daily-driver",
             "label": "Daily Driver",
             "status": "production",
+            "artifacts": {"model": {"file": "daily.gguf"}},
             "runtime": {
                 "context_length": 262144,
                 "parallel_slots": 4,
                 "gpu_layers": 999,
                 "kv_cache": "q8_0",
+                "mmproj_offload": True,
+                "batch_size": 256,
+                "ubatch_size": 256,
+                "image_min_tokens": 256,
+                "image_max_tokens": 512,
             },
         }), encoding="utf-8")
         self.engineer = FlightEngineer(
@@ -57,6 +63,7 @@ class FlightEngineerTests(unittest.TestCase):
         self.assertEqual([p["id"] for p in profiles], ["daily-driver"])
         self.assertTrue(profiles[0]["active"])
         self.assertEqual(profiles[0]["kv_cache"], "q8_0")
+        self.assertEqual(profiles[0]["model_file"], "daily.gguf")
 
     def test_use_requires_confirmation_before_subprocess(self):
         with self.assertRaisesRegex(FlightEngineerError, "confirmation"):
@@ -84,7 +91,24 @@ class FlightEngineerTests(unittest.TestCase):
             FlightEngineer._run(["false"])
         self.assertLessEqual(len(str(caught.exception)), 1000)
 
+    @patch.object(FlightEngineer, "profiles")
+    @patch.object(FlightEngineer, "_run")
+    def test_update_uses_bounded_stdin_json(self, run, profiles):
+        profiles.return_value = [{"id": "daily-driver", "label": "Renamed"}]
+        result = self.engineer.update("daily-driver", label="Renamed")
+        args, kwargs = run.call_args
+        self.assertEqual(["sudo", "-n", "/control", "update", "daily-driver"], args[0])
+        self.assertEqual({"label": "Renamed"}, json.loads(kwargs["input_text"]))
+        self.assertEqual("Renamed", result["label"])
+
+    @patch.object(FlightEngineer, "status")
+    @patch.object(FlightEngineer, "_run")
+    def test_set_default_is_non_interrupting(self, run, status):
+        status.return_value = {"default_profile": "daily-driver"}
+        result = self.engineer.set_default("daily-driver")
+        run.assert_called_once_with(["sudo", "-n", "/control", "set-default", "daily-driver"], timeout=30)
+        self.assertEqual("daily-driver", result["default_profile"])
+
 
 if __name__ == "__main__":
     unittest.main()
-
