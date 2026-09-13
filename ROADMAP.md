@@ -49,3 +49,41 @@ Acceptance gate:
 - Add a `ds4` driver only if it can implement the existing Flight Engineer
   status/list/use/rollback contract without special cases in the Hermes plugin.
 
+## llama.cpp GLM-5.3-Flash Support
+
+Status: upstream pull request open; track before testing.
+
+Source: <https://github.com/ggml-org/llama.cpp/pull/27773>
+
+PR `#27773` adds GLM-5.3-Flash (`glm5-next`) text and vision support to
+llama.cpp. This is strategically important because Flight Engineer already has
+a llama.cpp backend, so a validated GLM profile could avoid adding another
+runtime driver. The proposed model is a 320B hybrid architecture with KDA, DSA,
+mHC, and routed MoE layers. The implementation deliberately keeps about 1 GB
+of precision-sensitive tensors unquantized.
+
+Known constraints from the open PR:
+
+- Multiple sequences require unified KV.
+- Vision uses a new GLM5V preprocessing path and compatible projector.
+- MTP is not part of this PR; it is tracked separately in llama.cpp PR
+  `#27917`.
+- GGUF architecture and tensor naming changed during review. Use only a quant
+  explicitly converted for the pinned runtime commit.
+- Community testing shows the architecture can run with 24 GB VRAM plus large
+  host RAM, but that is not evidence that Jarvis's specific 3090/RAM/storage
+  combination will meet latency or co-residency targets.
+
+Evaluation order:
+
+1. Wait for merge or pin a reviewed commit in an isolated branch. Never replace
+   the production llama.cpp image with an unpinned PR build.
+2. Confirm an exact compatible GGUF/projector revision, total disk size, host
+   RAM requirements, license, and checksum before downloading.
+3. Measure storage-backed or CPU-offloaded loading, prefill, generation,
+   first-token latency, context growth, and 24 GB VRAM behavior.
+4. Run Flight Engineer's normal text, strict JSON, tools, vision, cancellation,
+   concurrency, MoA-reference, TTS co-residency, and rollback acceptance.
+5. Compare the same GLM quant under DwarfStar when both runtimes offer a viable
+   configuration. Prefer llama.cpp if quality and latency are comparable because
+   it preserves the existing driver and operational surface.
