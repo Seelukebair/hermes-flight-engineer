@@ -182,6 +182,22 @@ class FlightEngineer:
                     continue
         return metrics
 
+    @staticmethod
+    def _slot_context_tokens(slot: dict[str, Any]) -> int:
+        """Return the tokens currently resident in one llama.cpp slot."""
+        if slot.get("n_past") is not None:
+            return max(0, int(slot.get("n_past") or 0))
+
+        prompt_tokens = max(0, int(slot.get("n_prompt_tokens") or 0))
+        next_token = slot.get("next_token")
+        generated_tokens = 0
+        if isinstance(next_token, list):
+            generated_tokens = max(
+                (int(row.get("n_decoded") or 0) for row in next_token if isinstance(row, dict)),
+                default=0,
+            )
+        return prompt_tokens + max(0, generated_tokens)
+
     def telemetry(self) -> dict[str, Any]:
         """Return only aggregate host/runtime telemetry; slot prompt data stays private."""
         try:
@@ -191,7 +207,7 @@ class FlightEngineer:
             total_slots = len(slot_rows)
             active_slots = sum(1 for slot in slot_rows if isinstance(slot, dict) and slot.get("is_processing"))
             contexts = [int(slot.get("n_ctx") or 0) for slot in slot_rows if isinstance(slot, dict)]
-            context_used = [int(slot.get("n_prompt_tokens") or 0) for slot in slot_rows if isinstance(slot, dict)]
+            context_current = [self._slot_context_tokens(slot) for slot in slot_rows if isinstance(slot, dict)]
             gpu_raw = self._run([
                 "nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit",
                 "--format=csv,noheader,nounits",
@@ -211,7 +227,7 @@ class FlightEngineer:
                 "queued": int(metrics.get("requests_deferred", 0)),
                 "slots": total_slots,
                 "context_per_slot": max(contexts, default=0),
-                "context_tokens_used": max(context_used, default=0),
+                "context_tokens_current": max(context_current, default=0),
                 "tokens_predicted_total": int(metrics.get("tokens_predicted_total", 0)),
                 "prompt_tokens_total": int(metrics.get("prompt_tokens_total", 0)),
                 "prompt_tokens_cached_total": int(metrics.get("prompt_tokens_cached_total", 0)),

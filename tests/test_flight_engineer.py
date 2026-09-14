@@ -109,6 +109,21 @@ class FlightEngineerTests(unittest.TestCase):
         run.assert_called_once_with(["sudo", "-n", "/control", "set-default", "daily-driver"], timeout=30)
         self.assertEqual("daily-driver", result["default_profile"])
 
+    def test_slot_context_tokens_combines_prompt_and_generation(self):
+        slot = {
+            "n_prompt_tokens": 6400,
+            "next_token": [{"n_decoded": 900}],
+        }
+        self.assertEqual(7300, self.engineer._slot_context_tokens(slot))
+
+    def test_slot_context_tokens_prefers_runtime_occupancy(self):
+        slot = {
+            "n_past": 8100,
+            "n_prompt_tokens": 6400,
+            "next_token": [{"n_decoded": 900}],
+        }
+        self.assertEqual(8100, self.engineer._slot_context_tokens(slot))
+
 
 if __name__ == "__main__":
     unittest.main()
