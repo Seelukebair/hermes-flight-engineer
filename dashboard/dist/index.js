@@ -176,6 +176,7 @@
         }),
         h("div", { className: "flight-engineer-actions" },
           h("label", { className: "flight-engineer-toggle" }, h("input", { type: "checkbox", checked: Boolean(draft.enabled), onChange: function (e) { setValue("enabled", e.target.checked); } }), h("span", null, "Recipe enabled")),
+          h(Button, { outlined: true, disabled: props.busy, onClick: function () { if (window.confirm("Delete this recipe and its protected text?")) props.onDelete(recipe.id); } }, "Delete recipe"),
           h(Button, { disabled: props.busy, onClick: save }, "Save recipe"))));
   }
 
@@ -201,7 +202,7 @@
             h("input", { value: newId, placeholder: "short-recipe-id", maxLength: 64, onChange: function (e) { setNewId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } }),
             h(Button, { outlined: true, disabled: props.busy || !newId || !newName, onClick: function () { props.onCreate(newId, newName); setNewId(""); setNewName(""); } }, "Create"))),
         h("div", { className: "flight-engineer-recipes" }, data.recipes.length ? data.recipes.map(function (recipe) {
-          return h(RecipeRow, { key: recipe.id, recipe: recipe, profiles: props.profiles, busy: props.busy, onSave: props.onSave, onClear: props.onClear });
+          return h(RecipeRow, { key: recipe.id, recipe: recipe, profiles: props.profiles, busy: props.busy, onSave: props.onSave, onClear: props.onClear, onDelete: props.onDelete });
         }) : h("p", { className: "flight-engineer-helper" }, "No recipes yet. Create one, mark compatible profiles, then assign it above.")));
     return h(Card, null, header, content);
   }
@@ -228,6 +229,7 @@
       for (const secret of secrets) await request("/jailbreaks/" + encodeURIComponent(id) + "/secrets/" + secret.technique, { method: "PUT", body: JSON.stringify({ value: secret.value }) });
     }, "Recipe saved; protected editors were cleared."); }
     function clearJailbreakSecret(id, technique) { return mutate(function () { return request("/jailbreaks/" + encodeURIComponent(id) + "/secrets/" + technique, { method: "PUT", body: JSON.stringify({ value: "" }) }); }, "Protected text removed."); }
+    function deleteJailbreak(id) { return mutate(function () { return request("/jailbreaks/" + encodeURIComponent(id), { method: "DELETE" }); }, "Recipe and protected text removed."); }
     const services = status && status.services ? status.services : {};
     const healthy = Object.keys(services).length > 0 && Object.values(services).every(function (v) { return v === "active"; });
     const route = status && status.stable_route ? status.stable_route.provider + "/" + status.stable_route.model : "unknown";
@@ -249,7 +251,7 @@
           h(LevelMeter, { label: "System memory", percent: ramPercent, value: number(sys.ram_used_mb) + " / " + number(sys.ram_total_mb) + " MB", minLabel: "0", maxLabel: number(sys.ram_total_mb) + " MB" })))),
       h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Model profiles"), h("div", { className: "flight-engineer-stat-label" }, "Profile name and primary model stay visible; expand to tune runtime settings")), h("div", { className: "flight-engineer-actions" }, h("label", { className: "flight-engineer-confirm" }, h("input", { type: "checkbox", checked: confirmed, onChange: function (e) { setConfirmed(e.target.checked); } }), "Allow interrupting reloads"), h(Button, { outlined: true, onClick: function () { window.location.href = "/models"; } }, "Open MoA settings")))),
         h(CardContent, null, error ? h("p", { className: "flight-engineer-error" }, error) : null, notice ? h("p", { className: "flight-engineer-notice" }, notice) : null, h("div", { className: "flight-engineer-profiles" }, profiles.map(function (profile) { return h(ProfileRow, { key: profile.id, profile: profile, busy: busy, confirmed: confirmed, onSave: saveProfile, onClone: cloneProfile, onApply: applyProfile, onSwitch: switchProfile, onDefault: setDefaultProfile }); })))),
-      h(JailbreakPanel, { data: jailbreaks, profiles: profiles, busy: busy, onConfigure: configureJailbreaks, onCreate: createJailbreak, onSave: saveJailbreak, onClear: clearJailbreakSecret }));
+      h(JailbreakPanel, { data: jailbreaks, profiles: profiles, busy: busy, onConfigure: configureJailbreaks, onCreate: createJailbreak, onSave: saveJailbreak, onClear: clearJailbreakSecret, onDelete: deleteJailbreak }));
   }
   window.__HERMES_PLUGINS__.register("flight-engineer", FlightEngineerPage);
 })();

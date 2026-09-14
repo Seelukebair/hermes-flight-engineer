@@ -187,6 +187,14 @@ def update_jailbreak(recipe_id: str, request: JailbreakUpdateRequest):
         raise _jailbreak_error(exc) from exc
 
 
+@router.delete("/jailbreaks/{recipe_id}")
+def delete_jailbreak(recipe_id: str):
+    try:
+        return JailbreakStore().delete(recipe_id)
+    except JailbreakError as exc:
+        raise _jailbreak_error(exc) from exc
+
+
 @router.put("/jailbreaks/{recipe_id}/secrets/{technique}")
 def set_jailbreak_secret(recipe_id: str, technique: str, request: JailbreakSecretRequest):
     if technique not in SECRET_TYPES:

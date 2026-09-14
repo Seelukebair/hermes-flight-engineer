@@ -63,6 +63,16 @@ class JailbreakTests(unittest.TestCase):
         payload = {"messages": [{"role": "tool", "content": "result"}]}
         self.assertFalse(apply_injection(payload, {"assistant_prefill": "x"}))
 
+    def test_delete_removes_assignments_and_secrets(self):
+        self.store.create("temporary", "Temporary")
+        self.store.update("temporary", profile_ids=["smart-31b"])
+        self.store.set_secret("temporary", "thinking_prefill", "private")
+        self.store.configure(enabled=True, profile_id="smart-31b", recipe_id="temporary")
+        result = self.store.delete("temporary")
+        self.assertEqual(result["recipes"], [])
+        self.assertEqual(result["assignments"], {})
+        self.assertEqual(self.secrets.values, {})
+
 
 if __name__ == "__main__":
     unittest.main()

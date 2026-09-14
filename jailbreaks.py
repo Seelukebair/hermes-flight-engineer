@@ -197,6 +197,21 @@ class JailbreakStore:
         self._save(data)
         return next(item for item in self.list()["recipes"] if item["id"] == rid)
 
+    def delete(self, recipe_id: str) -> dict[str, Any]:
+        rid, data = _id(recipe_id), self._load()
+        recipe = next((item for item in data["recipes"] if item.get("id") == rid), None)
+        if recipe is None:
+            raise JailbreakError("recipe not found")
+        for entry in (recipe.get("techniques") or {}).values():
+            if isinstance(entry, dict) and entry.get("secret_ref"):
+                self.secrets.delete(entry["secret_ref"])
+        data["recipes"] = [item for item in data["recipes"] if item.get("id") != rid]
+        data["assignments"] = {
+            profile: assigned for profile, assigned in data["assignments"].items() if assigned != rid
+        }
+        self._save(data)
+        return self.list()
+
     def configure(self, *, enabled: bool | None = None, profile_id: str | None = None,
                   recipe_id: str | None = None) -> dict[str, Any]:
         data = self._load()
