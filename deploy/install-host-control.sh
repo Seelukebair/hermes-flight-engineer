@@ -38,4 +38,32 @@ EOF
 chmod 0440 /etc/sudoers.d/hermes-flight-engineer
 visudo -cf /etc/sudoers.d/hermes-flight-engineer
 
-echo "installed constrained Flight Engineer host control for ${operator}"
+cat >/etc/systemd/system/flight-engineer-prefill.service <<EOF
+[Unit]
+Description=Flight Engineer profile-aware prompt adapter
+After=network-online.target gemma4-thinker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${operator}
+Group=${operator}
+WorkingDirectory=${plugin_root}
+Environment=HOME=/home/${operator}
+Environment=HERMES_HOME=/home/${operator}/.hermes
+ExecStart=/home/${operator}/.hermes/hermes-agent/venv/bin/python ${plugin_root}/prefill_proxy.py --host 127.0.0.1 --port 8093 --upstream http://127.0.0.1:8092
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target
+EOF
+chmod 0644 /etc/systemd/system/flight-engineer-prefill.service
+systemctl daemon-reload
+systemctl enable --now flight-engineer-prefill.service
+
+echo "installed constrained Flight Engineer host control and loopback prompt adapter for ${operator}"

@@ -24,7 +24,8 @@ simultaneously loaded models.
   native MoA boundary. Plugin skills are namespaced in current Hermes; the bare
   name is not valid for `--skills` preloading.
 - Dashboard tab: live inference/system meters, collapsed profile rows, bounded
-  tuning controls, active/default selection, and a link to native MoA settings.
+  tuning controls, active/default selection, a reusable jailbreak recipe
+  library, and a link to native MoA settings.
 - Root-owned control wrapper: permits named profile operations and bounded JSON
   edits on stdin; no arbitrary shell, paths, images, force switch, or services.
 
@@ -78,6 +79,20 @@ profile. Profile manifests and the manager remain root-owned.
 at the next host boot; normal service reloads preserve the current selection.
 Saving an active tuning profile does not silently restart inference. Use the
 separate confirmed `Apply & reload` action.
+
+## Jailbreak Recipe Library
+
+Version 0.3 adds model-labeled recipes with separate system-framing,
+thinking-prefill, and assistant-prefill fields. A recipe can be marked
+compatible with multiple validated profiles and assigned independently to each
+one. No fuzzy model matching is used for prompt injection.
+
+Prompt bodies are stored through Hermes's profile-scoped `.env` writer. They
+are write-only in the dashboard and agent tool: APIs expose only recipe
+metadata and configured flags. The optional loopback adapter forwards to the
+unchanged llama.cpp service and injects only when the last request message is a
+user message, so tool-result continuations are not modified. Global injection
+is off until explicitly enabled.
 
 Restart the dashboard once to mount `plugin_api.py`; a normal dashboard plugin
 rescan is sufficient for later frontend-only changes.

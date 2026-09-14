@@ -42,3 +42,30 @@ boot and does not interrupt current inference. Call `set_default` only when the
 user explicitly asks to make a profile the default, then report both returned
 active and default profile ids. Never imply that changing the default also
 loaded the profile.
+
+## Jailbreak Recipes
+
+Flight Engineer can assign reusable prompt-injection recipes to compatible
+local model profiles. Recipe names, descriptions, compatibility, assignments,
+and configured/not-configured flags are visible. The actual system framing,
+thinking prefill, and assistant prefill text is protected and write-only: never
+claim to read, repeat, summarize, or reveal it.
+
+Use `list_jailbreaks` before changing recipe state. `assign_jailbreak` maps an
+existing compatible recipe to one profile; an empty recipe id clears the map.
+`set_jailbreak_enabled` is the global switch. Change either only when the user
+explicitly requests it. A recipe assignment does not switch model profiles.
+
+Injection types are intentionally distinct:
+
+- System framing appends instructions to the system message. It is strong but
+  may conflict with Hermes tool and safety guidance.
+- Thinking prefill starts a compatible model's private reasoning channel. It
+  steers approach but is not intended as visible answer text.
+- Assistant prefill starts the visible answer and asks the model to continue.
+  Its opening may be returned to the user.
+
+Injection runs only on the initial user request, never on a tool-result
+continuation. Unknown or merely similar models never inherit a recipe
+automatically. Prompt injection can lower refusal behavior, tool discipline,
+or response quality; do not describe it as guaranteed.

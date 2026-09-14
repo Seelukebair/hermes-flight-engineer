@@ -57,6 +57,8 @@ class PluginTests(unittest.TestCase):
         PLUGIN.register(context)
         actions = context.tool["schema"]["parameters"]["properties"]["action"]["enum"]
         self.assertIn("set_default", actions)
+        self.assertIn("list_jailbreaks", actions)
+        self.assertIn("assign_jailbreak", actions)
         content = (ROOT / "__init__.py").read_text(encoding="utf-8")
         self.assertIn('commands.add_parser("set-default"', content)
 
@@ -66,6 +68,8 @@ class PluginTests(unittest.TestCase):
         self.assertIn("Max concurrent inference", dashboard)
         self.assertIn("Live inference", dashboard)
         self.assertIn("Make default", dashboard)
+        self.assertIn("Jailbreak library", dashboard)
+        self.assertIn("Starts the model's private reasoning channel", dashboard)
         self.assertIn('exec "$MANAGER" update "$profile"', wrapper)
         self.assertNotIn("eval ", wrapper)
 

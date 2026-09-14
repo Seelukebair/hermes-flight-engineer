@@ -1,6 +1,6 @@
 name: flight-engineer
-version: "0.2.1"
-description: "Validated inference backend profiles, guarded switching, and native Hermes MoA awareness."
+version: "0.3.0"
+description: "Validated inference profiles, guarded switching, and profile-aware prompt recipes."
 author: "Luke Bair"
 kind: standalone
 provides_tools:

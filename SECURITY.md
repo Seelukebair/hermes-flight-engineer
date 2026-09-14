@@ -19,4 +19,12 @@ by the Hermes runtime account. The host installer verifies that the resolved
 manager, profile directory, and manifests are root-owned and not group/world
 writable before creating the sudo rule.
 
+Jailbreak recipe metadata is stored mode `0600` under the Hermes home. Prompt
+bodies use Hermes's profile-scoped `.env` writer and are never returned by the
+dashboard or agent APIs. The dashboard shows only configured state. The
+loopback adapter binds to `127.0.0.1`, logs no request bodies, and fails open to
+ordinary inference when recipe state cannot be resolved. Protected prompt text
+must still be sent to the local model at inference time and may be echoed by
+the model; this feature is not an absolute secrecy boundary.
+
 Report vulnerabilities privately through GitHub's security advisory feature.

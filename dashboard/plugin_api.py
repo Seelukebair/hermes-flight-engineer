@@ -14,6 +14,7 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 from flight_engineer import FlightEngineer, FlightEngineerError  # noqa: E402
+from jailbreaks import JailbreakError, JailbreakStore, SECRET_TYPES  # noqa: E402
 
 
 router = APIRouter()
@@ -51,9 +52,38 @@ class CloneRequest(BaseModel):
     label: str = Field(min_length=1, max_length=80)
 
 
+class JailbreakCreateRequest(BaseModel):
+    recipe_id: str
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=240)
+
+
+class JailbreakUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=240)
+    enabled: bool | None = None
+    profile_ids: list[str] | None = None
+
+
+class JailbreakSecretRequest(BaseModel):
+    value: str = Field(max_length=16000)
+
+
+class JailbreakConfigRequest(BaseModel):
+    enabled: bool | None = None
+    profile_id: str | None = None
+    recipe_id: str | None = None
+
+
 def _http_error(exc: FlightEngineerError) -> HTTPException:
     message = str(exc)
     status = 409 if "active request" in message or "confirmation" in message else 500
+    return HTTPException(status_code=status, detail=message)
+
+
+def _jailbreak_error(exc: JailbreakError) -> HTTPException:
+    message = str(exc)
+    status = 404 if "not found" in message else 409 if "already exists" in message else 400
     return HTTPException(status_code=status, detail=message)
 
 
@@ -131,3 +161,45 @@ def rollback(request: RollbackRequest):
         return FlightEngineer().rollback(confirm_interrupt=request.confirm_interrupt)
     except FlightEngineerError as exc:
         raise _http_error(exc) from exc
+
+
+@router.get("/jailbreaks")
+def jailbreaks():
+    try:
+        return JailbreakStore().list()
+    except JailbreakError as exc:
+        raise _jailbreak_error(exc) from exc
+
+
+@router.post("/jailbreaks")
+def create_jailbreak(request: JailbreakCreateRequest):
+    try:
+        return JailbreakStore().create(request.recipe_id, request.name, request.description)
+    except JailbreakError as exc:
+        raise _jailbreak_error(exc) from exc
+
+
+@router.patch("/jailbreaks/{recipe_id}")
+def update_jailbreak(recipe_id: str, request: JailbreakUpdateRequest):
+    try:
+        return JailbreakStore().update(recipe_id, **request.model_dump(exclude_none=True))
+    except JailbreakError as exc:
+        raise _jailbreak_error(exc) from exc
+
+
+@router.put("/jailbreaks/{recipe_id}/secrets/{technique}")
+def set_jailbreak_secret(recipe_id: str, technique: str, request: JailbreakSecretRequest):
+    if technique not in SECRET_TYPES:
+        raise HTTPException(status_code=400, detail="invalid injection type")
+    try:
+        return JailbreakStore().set_secret(recipe_id, technique, request.value)
+    except JailbreakError as exc:
+        raise _jailbreak_error(exc) from exc
+
+
+@router.patch("/jailbreaks")
+def configure_jailbreaks(request: JailbreakConfigRequest):
+    try:
+        return JailbreakStore().configure(**request.model_dump(exclude_none=True))
+    except JailbreakError as exc:
+        raise _jailbreak_error(exc) from exc

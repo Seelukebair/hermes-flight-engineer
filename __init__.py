@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from .flight_engineer import FlightEngineer, FlightEngineerError
+from .jailbreaks import JailbreakError, JailbreakStore
 
 
 _PROFILE_INTENT = re.compile(
-    r"\b(?:flight engineer|backend profile|model profile|daily driver|smart(?:er)? model)\b"
+    r"\b(?:flight engineer|backend profile|model profile|daily driver|smart(?:er)? model|jailbreak|prefill|injection recipe)\b"
     r"|\b(?:switch|change|load|activate|use|rollback|revert)\b.{0,48}"
     r"\b(?:backend|inference|local model|model configuration|profile)\b",
     re.IGNORECASE | re.DOTALL,
@@ -27,7 +28,8 @@ def _profile_intent_context(user_message: str = "", **_: Any) -> dict[str, str] 
         "before proposing a change. The stable Hermes route is gemma4-thinker-local/gemma4-thinker and may be "
         "used by native Mixture of Agents. Profiles are mutually exclusive configurations behind that route, not "
         "simultaneously loaded MoA models. Set confirm_interrupt=true only when the user explicitly requested the "
-        "disruptive switch. Report the returned active profile and service health; never infer success."
+        "disruptive switch. Jailbreak recipes are profile-specific and their protected text is never readable through "
+        "the tool; list metadata before changing an assignment or global state. Report returned state; never infer success."
     )}
 
 
@@ -48,10 +50,19 @@ def _dispatch(args: dict[str, Any], **_: Any) -> str:
             result = engineer.rollback(confirm_interrupt=args.get("confirm_interrupt") is True)
         elif action == "set_default":
             result = engineer.set_default(str(args.get("profile_id") or ""))
+        elif action == "list_jailbreaks":
+            result = JailbreakStore().list()
+        elif action == "set_jailbreak_enabled":
+            result = JailbreakStore().configure(enabled=args.get("enabled") is True)
+        elif action == "assign_jailbreak":
+            result = JailbreakStore().configure(
+                profile_id=str(args.get("profile_id") or ""),
+                recipe_id=str(args.get("recipe_id") or "") or None,
+            )
         else:
             raise FlightEngineerError(f"unsupported action: {action}")
         return json.dumps({"ok": True, "result": result}, sort_keys=True)
-    except FlightEngineerError as exc:
+    except (FlightEngineerError, JailbreakError) as exc:
         return json.dumps({"ok": False, "error": str(exc)}, sort_keys=True)
 
 
@@ -103,8 +114,10 @@ def register(ctx: Any) -> None:
                 "type": "object",
                 "required": ["action"],
                 "properties": {
-                    "action": {"type": "string", "enum": ["status", "list", "use", "rollback", "set_default"]},
+                    "action": {"type": "string", "enum": ["status", "list", "use", "rollback", "set_default", "list_jailbreaks", "set_jailbreak_enabled", "assign_jailbreak"]},
                     "profile_id": {"type": "string", "description": "Profile id returned by list."},
+                    "recipe_id": {"type": "string", "description": "Recipe id returned by list_jailbreaks; omit to clear an assignment."},
+                    "enabled": {"type": "boolean", "description": "Global jailbreak-library state for set_jailbreak_enabled."},
                     "confirm_interrupt": {
                         "type": "boolean",
                         "description": "True only after the user explicitly requests a disruptive switch.",

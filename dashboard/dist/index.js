@@ -121,10 +121,95 @@
           h(Button, { disabled: props.busy || !props.confirmed, onClick: function () { profile.active ? props.onApply(profile.id) : props.onSwitch(profile.id); } }, profile.active ? "Apply & reload" : "Load profile"))));
   }
 
+  const injectionHelp = {
+    system_framing: "Adds instructions to Hermes's system message before generation. Strong and persistent for the request, but more likely to conflict with Hermes policy or tool guidance.",
+    thinking_prefill: "Starts the model's private reasoning channel with your text. Useful for steering how a compatible reasoning model approaches the request; it is not spoken or shown as the answer.",
+    assistant_prefill: "Starts the visible assistant answer with your text and asks the model to continue it. This is the simplest refusal-steering method, but the opening may appear in the reply."
+  };
+  const injectionLabels = { system_framing: "System framing", thinking_prefill: "Thinking prefill", assistant_prefill: "Assistant prefill" };
+
+  function RecipeRow(props) {
+    const recipe = props.recipe;
+    const [draft, setDraft] = useState(Object.assign({}, recipe));
+    const [secrets, setSecrets] = useState({ system_framing: "", thinking_prefill: "", assistant_prefill: "" });
+    useEffect(function () { setDraft(Object.assign({}, recipe)); }, [recipe]);
+    function setValue(key, value) { setDraft(function (current) { return Object.assign({}, current, { [key]: value }); }); }
+    function toggleProfile(id) {
+      const ids = new Set(draft.profile_ids || []);
+      if (ids.has(id)) ids.delete(id); else ids.add(id);
+      setValue("profile_ids", Array.from(ids));
+    }
+    function save() {
+      const pending = Object.keys(secrets).filter(function (kind) { return secrets[kind].trim(); });
+      props.onSave(recipe.id, { name: draft.name, description: draft.description, enabled: draft.enabled, profile_ids: draft.profile_ids || [] }, pending.map(function (kind) { return { technique: kind, value: secrets[kind] }; }));
+      setSecrets({ system_framing: "", thinking_prefill: "", assistant_prefill: "" });
+    }
+    return h("details", { className: "flight-engineer-recipe" },
+      h("summary", null,
+        h("div", { className: "flight-engineer-recipe-title" }, h("strong", null, recipe.name), h("span", null, recipe.id)),
+        h("div", { className: "flight-engineer-summary-actions" },
+          h(Badge, null, recipe.enabled ? "enabled" : "disabled"),
+          h(Badge, null, Object.values(recipe.techniques || {}).filter(Boolean).length + "/3 configured"),
+          h("span", { className: "flight-engineer-chevron", "aria-hidden": "true" }, "v"))),
+      h("div", { className: "flight-engineer-recipe-body" },
+        h("div", { className: "flight-engineer-recipe-grid" },
+          h(Field, { label: "Friendly recipe name" }, h("input", { value: draft.name, maxLength: 80, onChange: function (e) { setValue("name", e.target.value); } })),
+          h(Field, { label: "What this recipe is for" }, h("input", { value: draft.description || "", maxLength: 240, placeholder: "Short compatibility or behavior note", onChange: function (e) { setValue("description", e.target.value); } }))),
+        h("div", { className: "flight-engineer-compatibility" },
+          h("strong", null, "Compatible model profiles"),
+          h("span", { className: "flight-engineer-helper" }, "A recipe can be reused, but it runs only on explicitly checked profiles."),
+          h("div", { className: "flight-engineer-profile-checks" }, props.profiles.map(function (profile) {
+            return h("label", { key: profile.id, title: profile.model_file || profile.id },
+              h("input", { type: "checkbox", checked: (draft.profile_ids || []).includes(profile.id), onChange: function () { toggleProfile(profile.id); } }),
+              h("span", null, profile.label));
+          }))),
+        Object.keys(injectionLabels).map(function (kind) {
+          const configured = Boolean((recipe.techniques || {})[kind]);
+          return h("section", { key: kind, className: "flight-engineer-injection-type" },
+            h("div", { className: "flight-engineer-injection-heading" }, h("strong", null, injectionLabels[kind]), h(Badge, null, configured ? "configured" : "empty")),
+            h("p", { className: "flight-engineer-helper" }, injectionHelp[kind]),
+            h("textarea", { value: secrets[kind], rows: 3, maxLength: 16000,
+              placeholder: configured ? "Protected value configured. Enter replacement text, or leave blank to keep it." : "Enter protected injection text",
+              "aria-label": injectionLabels[kind] + " protected text",
+              onChange: function (e) { setSecrets(Object.assign({}, secrets, { [kind]: e.target.value })); } }));
+        }),
+        h("div", { className: "flight-engineer-actions" },
+          h("label", { className: "flight-engineer-toggle" }, h("input", { type: "checkbox", checked: Boolean(draft.enabled), onChange: function (e) { setValue("enabled", e.target.checked); } }), h("span", null, "Recipe enabled")),
+          h(Button, { disabled: props.busy, onClick: save }, "Save recipe"))));
+  }
+
+  function JailbreakPanel(props) {
+    const data = props.data || { enabled: false, assignments: {}, recipes: [] };
+    const [newId, setNewId] = useState(""), [newName, setNewName] = useState("");
+    const header = h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" },
+        h("div", null, h(CardTitle, null, "Jailbreak library"), h("div", { className: "flight-engineer-stat-label" }, "Reusable, model-labeled injection recipes; protected text is write-only")),
+        h("label", { className: "flight-engineer-toggle" }, h("input", { type: "checkbox", checked: Boolean(data.enabled), disabled: props.busy,
+          onChange: function (e) { props.onConfigure({ enabled: e.target.checked }); } }), h("span", null, data.enabled ? "Injection active" : "Injection off"))));
+    const content = h(CardContent, null,
+        h("div", { className: "flight-engineer-warning" }, "Prompt injection can reduce refusals, but it can also weaken tool discipline or response quality. Recipes apply only to explicitly compatible and assigned local profiles."),
+        h("section", { className: "flight-engineer-assignments" }, h("h4", null, "Profile assignments"),
+          h("div", { className: "flight-engineer-assignment-grid" }, props.profiles.map(function (profile) {
+            const compatible = data.recipes.filter(function (recipe) { return recipe.enabled && (recipe.profile_ids || []).includes(profile.id); });
+            return h(Field, { key: profile.id, label: profile.label }, h("select", { value: data.assignments[profile.id] || "", title: profile.model_file || profile.id,
+              onChange: function (e) { props.onConfigure({ profile_id: profile.id, recipe_id: e.target.value || null }); } },
+              h("option", { value: "" }, "No recipe"), compatible.map(function (recipe) { return h("option", { key: recipe.id, value: recipe.id }, recipe.name); })));
+          }))),
+        h("details", { className: "flight-engineer-create" }, h("summary", null, "Create recipe"),
+          h("div", { className: "flight-engineer-create-row" },
+            h("input", { value: newName, placeholder: "Friendly name", maxLength: 80, onChange: function (e) { setNewName(e.target.value); } }),
+            h("input", { value: newId, placeholder: "short-recipe-id", maxLength: 64, onChange: function (e) { setNewId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } }),
+            h(Button, { outlined: true, disabled: props.busy || !newId || !newName, onClick: function () { props.onCreate(newId, newName); setNewId(""); setNewName(""); } }, "Create"))),
+        h("div", { className: "flight-engineer-recipes" }, data.recipes.length ? data.recipes.map(function (recipe) {
+          return h(RecipeRow, { key: recipe.id, recipe: recipe, profiles: props.profiles, busy: props.busy, onSave: props.onSave });
+        }) : h("p", { className: "flight-engineer-helper" }, "No recipes yet. Create one, mark compatible profiles, then assign it above.")));
+    return h(Card, null, header, content);
+  }
+
   function FlightEngineerPage() {
     const [status, setStatus] = useState(null), [profiles, setProfiles] = useState([]), [telemetry, setTelemetry] = useState(null);
+    const [jailbreaks, setJailbreaks] = useState({ enabled: false, assignments: {}, recipes: [] });
     const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
-    const refresh = useCallback(async function () { try { const values = await Promise.all([request("/status"), request("/profiles")]); setStatus(values[0]); setProfiles(values[1].profiles || []); setError(""); } catch (err) { setError(String(err.message || err)); } }, []);
+    const refresh = useCallback(async function () { try { const values = await Promise.all([request("/status"), request("/profiles"), request("/jailbreaks")]); setStatus(values[0]); setProfiles(values[1].profiles || []); setJailbreaks(values[2]); setError(""); } catch (err) { setError(String(err.message || err)); } }, []);
     const refreshTelemetry = useCallback(async function () { try { setTelemetry(await request("/telemetry")); } catch (_) { setTelemetry(null); } }, []);
     useEffect(function () { refresh(); refreshTelemetry(); }, [refresh, refreshTelemetry]);
     useEffect(function () { const timer = window.setInterval(function () { if (!document.hidden) refreshTelemetry(); }, 2000); return function () { window.clearInterval(timer); }; }, [refreshTelemetry]);
@@ -135,6 +220,12 @@
     function cloneProfile(source, target, label) { return mutate(function () { return request("/profiles/clone", { method: "POST", body: JSON.stringify({ source_id: source, target_id: target, label: label }) }); }, "Tuning profile created."); }
     function setDefaultProfile(id) { return mutate(function () { return request("/profiles/" + encodeURIComponent(id) + "/default", { method: "POST" }); }, "Default profile changed for the next host boot."); }
     function rollbackProfile() { return mutate(function () { return request("/rollback", { method: "POST", body: JSON.stringify({ confirm_interrupt: confirmed }) }); }, "Previous profile restored."); }
+    function configureJailbreaks(patch) { return mutate(function () { return request("/jailbreaks", { method: "PATCH", body: JSON.stringify(patch) }); }, "Jailbreak configuration saved."); }
+    function createJailbreak(id, name) { return mutate(function () { return request("/jailbreaks", { method: "POST", body: JSON.stringify({ recipe_id: id, name: name }) }); }, "Jailbreak recipe created."); }
+    function saveJailbreak(id, patch, secrets) { return mutate(async function () {
+      await request("/jailbreaks/" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify(patch) });
+      for (const secret of secrets) await request("/jailbreaks/" + encodeURIComponent(id) + "/secrets/" + secret.technique, { method: "PUT", body: JSON.stringify({ value: secret.value }) });
+    }, "Recipe saved; protected editors were cleared."); }
     const services = status && status.services ? status.services : {};
     const healthy = Object.keys(services).length > 0 && Object.values(services).every(function (v) { return v === "active"; });
     const route = status && status.stable_route ? status.stable_route.provider + "/" + status.stable_route.model : "unknown";
@@ -155,7 +246,8 @@
           h(LevelMeter, { label: "CPU load", percent: sys.cpu_load_percent, value: number(sys.cpu_load_percent) + "%", minLabel: "0%", maxLabel: "100%" }),
           h(LevelMeter, { label: "System memory", percent: ramPercent, value: number(sys.ram_used_mb) + " / " + number(sys.ram_total_mb) + " MB", minLabel: "0", maxLabel: number(sys.ram_total_mb) + " MB" })))),
       h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Model profiles"), h("div", { className: "flight-engineer-stat-label" }, "Profile name and primary model stay visible; expand to tune runtime settings")), h("div", { className: "flight-engineer-actions" }, h("label", { className: "flight-engineer-confirm" }, h("input", { type: "checkbox", checked: confirmed, onChange: function (e) { setConfirmed(e.target.checked); } }), "Allow interrupting reloads"), h(Button, { outlined: true, onClick: function () { window.location.href = "/models"; } }, "Open MoA settings")))),
-        h(CardContent, null, error ? h("p", { className: "flight-engineer-error" }, error) : null, notice ? h("p", { className: "flight-engineer-notice" }, notice) : null, h("div", { className: "flight-engineer-profiles" }, profiles.map(function (profile) { return h(ProfileRow, { key: profile.id, profile: profile, busy: busy, confirmed: confirmed, onSave: saveProfile, onClone: cloneProfile, onApply: applyProfile, onSwitch: switchProfile, onDefault: setDefaultProfile }); })))));
+        h(CardContent, null, error ? h("p", { className: "flight-engineer-error" }, error) : null, notice ? h("p", { className: "flight-engineer-notice" }, notice) : null, h("div", { className: "flight-engineer-profiles" }, profiles.map(function (profile) { return h(ProfileRow, { key: profile.id, profile: profile, busy: busy, confirmed: confirmed, onSave: saveProfile, onClone: cloneProfile, onApply: applyProfile, onSwitch: switchProfile, onDefault: setDefaultProfile }); })))),
+      h(JailbreakPanel, { data: jailbreaks, profiles: profiles, busy: busy, onConfigure: configureJailbreaks, onCreate: createJailbreak, onSave: saveJailbreak }));
   }
   window.__HERMES_PLUGINS__.register("flight-engineer", FlightEngineerPage);
 })();
