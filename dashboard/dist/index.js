@@ -44,6 +44,31 @@
     return h("label", { className: "flight-engineer-field" }, h("span", null, props.label), props.children);
   }
 
+  function EditableText(props) {
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(props.value || "");
+    useEffect(function () { setDraft(props.value || ""); }, [props.value]);
+    const clean = draft.trim();
+    const valid = props.allowEmpty || Boolean(clean);
+    function save() {
+      if (!valid || draft === props.value) return;
+      props.onSave(props.allowEmpty ? draft.trim() : clean);
+      setEditing(false);
+    }
+    return h("div", { className: "flight-engineer-editable", onClick: props.stopPropagation ? function (event) { event.stopPropagation(); } : undefined },
+      props.label ? h("span", { className: "flight-engineer-editable-label" }, props.label) : null,
+      h("div", { className: "flight-engineer-editable-control" }, editing ? h(React.Fragment, null,
+        h("input", { value: draft, maxLength: props.maxLength || 240, autoFocus: true, "aria-label": props.label || props.ariaLabel || "Editable value",
+          onChange: function (event) { setDraft(event.target.value); },
+          onKeyDown: function (event) { if (event.key === "Enter") save(); if (event.key === "Escape") { setDraft(props.value || ""); setEditing(false); } } }),
+        h(Button, { size: "sm", disabled: props.busy || !valid || draft === props.value, onClick: save }, "Save"),
+        h("button", { type: "button", className: "flight-engineer-editable-cancel", title: "Cancel edit", "aria-label": "Cancel edit",
+          onClick: function () { setDraft(props.value || ""); setEditing(false); } }, "x")) : h(React.Fragment, null,
+        h("span", { className: "flight-engineer-editable-value", title: props.value || "Not set" }, props.value || "Not set"),
+        h("button", { type: "button", className: "flight-engineer-editable-open", title: "Edit " + (props.label || props.ariaLabel || "value"), "aria-label": "Edit " + (props.label || props.ariaLabel || "value"),
+          onClick: function () { setEditing(true); } }, "\u270e"))));
+  }
+
   function Stepper(props) {
     const value = Number(props.value || 0);
     const step = props.step || 1;
@@ -82,7 +107,6 @@
     function setValue(key, value) { setDraft(function (current) { return Object.assign({}, current, { [key]: value }); }); }
     const runtimeKeys = ["context_length", "parallel_slots", "gpu_layers", "kv_cache", "mmproj_offload", "batch_size", "ubatch_size", "image_min_tokens", "image_max_tokens"];
     const runtimeChanged = runtimeKeys.some(function (key) { return draft[key] !== profile[key]; });
-    const labelChanged = draft.label !== profile.label;
     const assigned = ((props.jailbreaks || {}).assignments || {})[profile.id] || {};
     const selectedRecipes = Object.keys(assigned).map(function (kind) {
       return ((props.jailbreaks || {}).recipes || []).find(function (recipe) { return recipe.id === assigned[kind]; });
@@ -97,12 +121,10 @@
     return h("details", { className: "flight-engineer-profile", "data-active": String(profile.active) },
       h("summary", null,
         h("div", { className: "flight-engineer-profile-identity" },
-          h("input", { className: "flight-engineer-profile-name", value: draft.label, "aria-label": "Profile name",
-            onClick: function (event) { event.stopPropagation(); }, onChange: function (event) { setValue("label", event.target.value); } }),
+          h(EditableText, { value: profile.label, ariaLabel: "profile name", maxLength: 80, busy: props.busy, stopPropagation: true,
+            onSave: function (value) { props.onSave(profile.id, { label: value }); } }),
           h("span", { className: "flight-engineer-primary-model" }, profile.model_file || "model unavailable")),
         h("div", { className: "flight-engineer-summary-actions" },
-          labelChanged ? h(Button, { size: "sm", outlined: true, disabled: props.busy,
-            onClick: function (event) { event.preventDefault(); event.stopPropagation(); props.onSave(profile.id, { label: draft.label }); } }, "Save name") : null,
           profile.default ? h(Badge, null, "default") : null,
           profile.active ? h(Badge, null, "active") : null,
           h("span", { className: "flight-engineer-chevron", "aria-hidden": "true" }, "v"))),
@@ -149,9 +171,9 @@
           h("input", { value: cloneId, "aria-label": "New tuning profile id", onChange: function (e) { setCloneId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } }),
           h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onClone(profile.id, cloneId, cloneLabel); } }, "Duplicate for tuning")) : null,
         h("div", { className: "flight-engineer-actions" },
-          !locked ? h(Button, { outlined: true, disabled: props.busy || (!runtimeChanged && !labelChanged), onClick: function () {
+          !locked ? h(Button, { outlined: true, disabled: props.busy || !runtimeChanged, onClick: function () {
             const runtime = {}; runtimeKeys.forEach(function (key) { if (draft[key] !== profile[key]) runtime[key] = draft[key]; });
-            props.onSave(profile.id, { label: draft.label, runtime: runtimeChanged ? runtime : undefined });
+            props.onSave(profile.id, { runtime: runtime });
           } }, "Save settings") : null,
           h(Button, { outlined: true, disabled: props.busy || profile.default, onClick: function () { props.onDefault(profile.id); } }, profile.default ? "Default" : "Make default"),
           h(Button, { disabled: props.busy || !props.confirmed, onClick: function () { profile.active ? props.onApply(profile.id) : props.onSwitch(profile.id); } }, profile.active ? "Apply & reload" : "Load profile"))));
@@ -188,8 +210,10 @@
           h("span", { className: "flight-engineer-chevron", "aria-hidden": "true" }, "v"))),
       h("div", { className: "flight-engineer-recipe-body" },
         h("div", { className: "flight-engineer-recipe-grid" },
-          h(Field, { label: "Friendly name" }, h("input", { value: draft.name, maxLength: 80, onChange: function (e) { setValue("name", e.target.value); } })),
-          h(Field, { label: "What this entry is for" }, h("input", { value: draft.description || "", maxLength: 240, placeholder: "Short behavior or model note", onChange: function (e) { setValue("description", e.target.value); } }))),
+          h(EditableText, { label: "Friendly name", value: recipe.name, maxLength: 80, busy: props.busy,
+            onSave: function (value) { props.onSave(recipe.id, { name: value }, []); } }),
+          h(EditableText, { label: "What this entry is for", value: recipe.description || "", maxLength: 240, allowEmpty: true, busy: props.busy,
+            onSave: function (value) { props.onSave(recipe.id, { description: value }, []); } })),
         h("div", { className: "flight-engineer-compatibility" },
           h("strong", null, "Used by profiles"),
           h("span", { className: "flight-engineer-helper" }, (props.usedProfileIds || []).length ? "This entry is currently attached to these profiles." : "Not attached to a profile yet."),

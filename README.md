@@ -26,6 +26,8 @@ simultaneously loaded models.
 - Dashboard tab: live inference/system meters, collapsed profile rows, bounded
   tuning controls, active/default selection, profile-attached jailbreak
   methods, a compact reusable library, and a link to native MoA settings.
+  Existing text fields use a reusable pencil, text box, Save, and Cancel
+  interaction; runtime settings retain their separate save action.
 - Root-owned control wrapper: permits named profile operations and bounded JSON
   edits on stdin; no arbitrary shell, paths, images, force switch, or services.
 

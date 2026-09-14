@@ -25,9 +25,15 @@
 .flight-engineer-profile summary { list-style:none; display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.55rem .7rem; cursor:pointer; }
 .flight-engineer-profile summary::-webkit-details-marker { display:none; }
 .flight-engineer-profile-identity { display:grid; grid-template-columns:minmax(12rem,1fr) minmax(12rem,1.4fr); align-items:center; gap:.75rem; min-width:0; flex:1; }
-.flight-engineer-profile-name { min-width:0; width:100%; border:0; border-bottom:1px solid transparent; background:transparent; color:inherit; font:inherit; font-weight:600; padding:.2rem 0; }
-.flight-engineer-profile-name:hover { border-bottom-color:hsl(var(--border)); }
-.flight-engineer-profile-name:focus { outline:0; border-bottom-color:#43d6c5; }
+.flight-engineer-editable { display:flex; flex-direction:column; gap:.25rem; min-width:0; }
+.flight-engineer-editable-label { color:hsl(var(--muted-foreground)); font-size:.7rem; }
+.flight-engineer-editable-control { display:flex; align-items:center; gap:.35rem; min-width:0; }
+.flight-engineer-editable-value { min-width:0; flex:1; height:1.85rem; padding:.32rem .5rem; overflow:hidden; border:1px solid hsl(var(--border)); border-radius:4px; background:hsl(var(--muted)/.08); text-overflow:ellipsis; font-weight:600; white-space:nowrap; }
+.flight-engineer-editable-control>input { min-width:8rem; width:100%; height:1.85rem; border:1px solid #43d6c5; border-radius:4px; background:#0c1114; color:inherit; padding:0 .5rem; font:inherit; font-weight:600; }
+.flight-engineer-editable-open,.flight-engineer-editable-cancel { display:grid; place-items:center; flex:0 0 auto; width:1.65rem; height:1.65rem; padding:0; border:1px solid transparent; border-radius:3px; background:transparent; color:hsl(var(--muted-foreground)); line-height:1; cursor:pointer; }
+.flight-engineer-editable-open:hover { border-color:#43d6c5; color:#43d6c5; background:rgba(67,214,197,.1); }
+.flight-engineer-editable-cancel { color:#ff7b85; }
+.flight-engineer-editable-cancel:hover { border-color:#ff5a67; background:rgba(255,90,103,.12); }
 .flight-engineer-primary-model { color:hsl(var(--muted-foreground)); font:.7rem ui-monospace,SFMono-Regular,Menlo,monospace; overflow-wrap:anywhere; }
 .flight-engineer-chevron { color:hsl(var(--muted-foreground)); transition:transform .15s; }
 .flight-engineer-profile[open] .flight-engineer-chevron { transform:rotate(180deg); }
