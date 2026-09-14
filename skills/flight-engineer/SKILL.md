@@ -59,7 +59,7 @@ explicitly requests it. A recipe assignment does not switch model profiles.
 
 Injection types are intentionally distinct:
 
-- System framing appends instructions to the system message. It is strong but
+- System prompt injection appends instructions to the system message. It is strong but
   may conflict with Hermes tool and safety guidance.
 - Thinking prefill starts a compatible model's private reasoning channel. It
   steers approach but is not intended as visible answer text.

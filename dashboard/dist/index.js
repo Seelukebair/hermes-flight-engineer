@@ -123,11 +123,11 @@
   }
 
   const injectionHelp = {
-    system_framing: "Adds instructions to Hermes's system message before generation. Strong and persistent for the request, but more likely to conflict with Hermes policy or tool guidance.",
+    system_framing: "Injects text into Hermes's system prompt before generation. This provides strong instruction-level steering, but it is more likely to conflict with Hermes policy or tool guidance.",
     thinking_prefill: "Starts the model's private reasoning channel with your text. Useful for steering how a compatible reasoning model approaches the request; it is not spoken or shown as the answer.",
     assistant_prefill: "Starts the visible assistant answer with your text and asks the model to continue it. This is the simplest refusal-steering method, but the opening may appear in the reply."
   };
-  const injectionLabels = { system_framing: "System framing", thinking_prefill: "Thinking prefill", assistant_prefill: "Assistant prefill" };
+  const injectionLabels = { system_framing: "System prompt injection", thinking_prefill: "Thinking prefill", assistant_prefill: "Assistant prefill" };
 
   function RecipeRow(props) {
     const recipe = props.recipe;

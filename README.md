@@ -82,7 +82,7 @@ separate confirmed `Apply & reload` action.
 
 ## Jailbreak Recipe Library
 
-Version 0.3 adds three explicit libraries: system framing, thinking prefill,
+Version 0.3 adds three explicit libraries: system prompt injection, thinking prefill,
 and assistant prefill. Each friendly-named entry belongs to one type, can be
 marked compatible with multiple validated profiles, and is assigned per type
 and profile. No fuzzy model matching is used for prompt injection.
