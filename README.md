@@ -25,7 +25,7 @@ simultaneously loaded models.
   name is not valid for `--skills` preloading.
 - Dashboard tab: live inference/system meters, collapsed profile rows, bounded
   tuning controls, active/default selection, profile-attached jailbreak
-  methods, a compact reusable library, and a link to native MoA settings.
+methods, a compact reusable library, and a link to native MoA settings.
   Existing text fields use a reusable pencil, text box, Save, and Cancel
   interaction; runtime settings retain their separate save action.
   Locked-profile duplication is collapsed behind `Create editable tuning copy`
@@ -87,7 +87,10 @@ separate confirmed `Apply & reload` action.
 ## Jailbreak Method Library
 
 Version 0.4 keeps three explicit method types: system prompt injection, thinking
-prefill, and assistant prefill. Attach methods from the expanded model profile
+prefill, and assistant prefill. The library's three colored buttons are
+independent view filters and start enabled; turning one off hides that method
+type without changing entries or profile assignments. New entries choose their
+method type inside the create form. Attach methods from the expanded model profile
 with its `+` picker. The bounded selector searches by name/description and can
 filter all, system, thinking, or assistant entries without expanding for a large
 library. Selected methods appear by friendly name and a color-coded
