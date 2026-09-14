@@ -58,6 +58,7 @@ def _dispatch(args: dict[str, Any], **_: Any) -> str:
             result = JailbreakStore().configure(
                 profile_id=str(args.get("profile_id") or ""),
                 recipe_id=str(args.get("recipe_id") or "") or None,
+                technique=str(args.get("technique") or "") or None,
             )
         else:
             raise FlightEngineerError(f"unsupported action: {action}")
@@ -117,6 +118,7 @@ def register(ctx: Any) -> None:
                     "action": {"type": "string", "enum": ["status", "list", "use", "rollback", "set_default", "list_jailbreaks", "set_jailbreak_enabled", "assign_jailbreak"]},
                     "profile_id": {"type": "string", "description": "Profile id returned by list."},
                     "recipe_id": {"type": "string", "description": "Recipe id returned by list_jailbreaks; omit to clear an assignment."},
+                    "technique": {"type": "string", "enum": ["system_framing", "thinking_prefill", "assistant_prefill"], "description": "Injection type to clear when recipe_id is omitted."},
                     "enabled": {"type": "boolean", "description": "Global jailbreak-library state for set_jailbreak_enabled."},
                     "confirm_interrupt": {
                         "type": "boolean",

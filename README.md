@@ -82,10 +82,10 @@ separate confirmed `Apply & reload` action.
 
 ## Jailbreak Recipe Library
 
-Version 0.3 adds model-labeled recipes with separate system-framing,
-thinking-prefill, and assistant-prefill fields. A recipe can be marked
-compatible with multiple validated profiles and assigned independently to each
-one. No fuzzy model matching is used for prompt injection.
+Version 0.3 adds three explicit libraries: system framing, thinking prefill,
+and assistant prefill. Each friendly-named entry belongs to one type, can be
+marked compatible with multiple validated profiles, and is assigned per type
+and profile. No fuzzy model matching is used for prompt injection.
 
 Prompt bodies are stored through Hermes's profile-scoped `.env` writer. They
 are write-only in the dashboard and agent tool: APIs expose only recipe

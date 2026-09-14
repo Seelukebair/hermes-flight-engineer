@@ -32,11 +32,11 @@ class JailbreakTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_write_only_public_shape_and_explicit_assignment(self):
-        self.store.create("gemma-balanced", "Gemma balanced")
+        self.store.create("gemma-balanced", "Gemma balanced", "assistant_prefill")
         self.store.update("gemma-balanced", profile_ids=["smart-31b"])
         self.store.set_secret("gemma-balanced", "assistant_prefill", "Start here")
         public = self.store.configure(enabled=True, profile_id="smart-31b", recipe_id="gemma-balanced")
-        self.assertTrue(public["recipes"][0]["techniques"]["assistant_prefill"])
+        self.assertTrue(public["recipes"][0]["configured"])
         self.assertNotIn("Start here", str(public))
         self.assertEqual(self.store.resolve("smart-31b"), {"assistant_prefill": "Start here"})
         self.assertEqual(self.store.resolve("daily-driver"), {})
@@ -44,9 +44,28 @@ class JailbreakTests(unittest.TestCase):
         self.assertEqual(self.store.resolve("smart-31b"), {})
 
     def test_assignment_requires_compatibility(self):
-        self.store.create("gemma-balanced", "Gemma balanced")
+        self.store.create("gemma-balanced", "Gemma balanced", "assistant_prefill")
         with self.assertRaisesRegex(JailbreakError, "compatible"):
             self.store.configure(profile_id="smart-31b", recipe_id="gemma-balanced")
+
+    def test_each_type_has_an_independent_profile_assignment(self):
+        for recipe_id, kind, value in (
+            ("system-one", "system_framing", "system"),
+            ("thinking-one", "thinking_prefill", "thinking"),
+            ("assistant-one", "assistant_prefill", "assistant"),
+        ):
+            self.store.create(recipe_id, recipe_id, kind)
+            self.store.update(recipe_id, profile_ids=["smart-31b"])
+            self.store.set_secret(recipe_id, kind, value)
+            self.store.configure(profile_id="smart-31b", recipe_id=recipe_id)
+        self.store.configure(enabled=True)
+        self.assertEqual(self.store.resolve("smart-31b"), {
+            "system_framing": "system", "thinking_prefill": "thinking", "assistant_prefill": "assistant",
+        })
+        self.store.configure(profile_id="smart-31b", technique="thinking_prefill")
+        self.assertEqual(self.store.resolve("smart-31b"), {
+            "system_framing": "system", "assistant_prefill": "assistant",
+        })
 
     def test_injection_keeps_types_separate(self):
         payload = {"messages": [{"role": "system", "content": "base"}, {"role": "user", "content": "hello"}]}
@@ -64,7 +83,7 @@ class JailbreakTests(unittest.TestCase):
         self.assertFalse(apply_injection(payload, {"assistant_prefill": "x"}))
 
     def test_delete_removes_assignments_and_secrets(self):
-        self.store.create("temporary", "Temporary")
+        self.store.create("temporary", "Temporary", "thinking_prefill")
         self.store.update("temporary", profile_ids=["smart-31b"])
         self.store.set_secret("temporary", "thinking_prefill", "private")
         self.store.configure(enabled=True, profile_id="smart-31b", recipe_id="temporary")

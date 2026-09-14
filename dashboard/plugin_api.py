@@ -55,6 +55,7 @@ class CloneRequest(BaseModel):
 class JailbreakCreateRequest(BaseModel):
     recipe_id: str
     name: str = Field(min_length=1, max_length=80)
+    recipe_type: str
     description: str = Field(default="", max_length=240)
 
 
@@ -73,6 +74,7 @@ class JailbreakConfigRequest(BaseModel):
     enabled: bool | None = None
     profile_id: str | None = None
     recipe_id: str | None = None
+    technique: str | None = None
 
 
 def _http_error(exc: FlightEngineerError) -> HTTPException:
@@ -174,7 +176,7 @@ def jailbreaks():
 @router.post("/jailbreaks")
 def create_jailbreak(request: JailbreakCreateRequest):
     try:
-        return JailbreakStore().create(request.recipe_id, request.name, request.description)
+        return JailbreakStore().create(request.recipe_id, request.name, request.recipe_type, request.description)
     except JailbreakError as exc:
         raise _jailbreak_error(exc) from exc
 

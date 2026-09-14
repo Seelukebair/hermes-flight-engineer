@@ -83,7 +83,33 @@ class JailbreakStore:
 
     @staticmethod
     def _empty() -> dict[str, Any]:
-        return {"version": 1, "enabled": False, "assignments": {}, "recipes": []}
+        return {"version": 2, "enabled": False, "assignments": {}, "recipes": []}
+
+    @staticmethod
+    def _migrate_v1(data: dict[str, Any]) -> dict[str, Any]:
+        """Split legacy multi-technique recipes into one named entry per type."""
+        migrated = {"version": 2, "enabled": bool(data.get("enabled")), "assignments": {}, "recipes": []}
+        legacy_assignments = data.get("assignments") or {}
+        for recipe in data.get("recipes") or []:
+            if not isinstance(recipe, dict):
+                continue
+            for kind in SECRET_TYPES:
+                secret = (recipe.get("techniques") or {}).get(kind) or {}
+                if not secret.get("configured"):
+                    continue
+                suffix = kind.replace("_prefill", "").replace("_framing", "")
+                rid = f"{str(recipe.get('id') or 'recipe')[:54]}-{suffix}"
+                migrated["recipes"].append({
+                    "id": rid, "name": f"{recipe.get('name') or recipe.get('id')} - {suffix.title()}",
+                    "description": recipe.get("description", ""), "type": kind,
+                    "enabled": bool(recipe.get("enabled", True)),
+                    "profile_ids": list(recipe.get("profile_ids") or []),
+                    "secret": {"configured": True, "secret_ref": secret.get("secret_ref")},
+                })
+                for profile, assigned in legacy_assignments.items():
+                    if assigned == recipe.get("id"):
+                        migrated["assignments"].setdefault(profile, {})[kind] = rid
+        return migrated
 
     def _load(self) -> dict[str, Any]:
         if not self.path.exists():
@@ -92,7 +118,10 @@ class JailbreakStore:
             data = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise JailbreakError("jailbreak metadata is unreadable") from exc
-        if not isinstance(data, dict) or data.get("version") != 1:
+        if isinstance(data, dict) and data.get("version") == 1:
+            data = self._migrate_v1(data)
+            self._save(data)
+        if not isinstance(data, dict) or data.get("version") != 2:
             raise JailbreakError("unsupported jailbreak metadata version")
         data.setdefault("enabled", False)
         data.setdefault("assignments", {})
@@ -121,38 +150,37 @@ class JailbreakStore:
     def _public(data: dict[str, Any]) -> dict[str, Any]:
         # Secret references are implementation details. Only configuration state leaves this layer.
         return {
-            "version": 1,
+            "version": 2,
             "enabled": bool(data.get("enabled")),
             "assignments": dict(data.get("assignments") or {}),
             "recipes": [{
                 "id": recipe["id"],
                 "name": recipe["name"],
                 "description": recipe.get("description", ""),
+                "type": recipe["type"],
                 "enabled": bool(recipe.get("enabled", True)),
                 "profile_ids": list(recipe.get("profile_ids") or []),
-                "techniques": {
-                    kind: bool((recipe.get("techniques") or {}).get(kind, {}).get("configured"))
-                    for kind in SECRET_TYPES
-                },
+                "configured": bool((recipe.get("secret") or {}).get("configured")),
             } for recipe in data.get("recipes", []) if isinstance(recipe, dict)],
         }
 
     def list(self) -> dict[str, Any]:
         return self._public(self._load())
 
-    def create(self, recipe_id: str, name: str, description: str = "") -> dict[str, Any]:
+    def create(self, recipe_id: str, name: str, recipe_type: str, description: str = "") -> dict[str, Any]:
         rid = _id(recipe_id)
         clean_name = str(name or "").strip()
         if not clean_name or len(clean_name) > 80:
             raise JailbreakError("recipe name must be 1-80 characters")
+        if recipe_type not in SECRET_TYPES:
+            raise JailbreakError("invalid injection type")
         data = self._load()
         if any(item.get("id") == rid for item in data["recipes"]):
             raise JailbreakError("recipe id already exists")
         data["recipes"].append({
             "id": rid, "name": clean_name, "description": str(description or "").strip()[:240],
-            "enabled": True, "profile_ids": [], "techniques": {
-                kind: {"configured": False, "secret_ref": _secret_ref(rid, kind)} for kind in SECRET_TYPES
-            },
+            "type": recipe_type, "enabled": True, "profile_ids": [],
+            "secret": {"configured": False, "secret_ref": _secret_ref(rid, recipe_type)},
         })
         self._save(data)
         return next(item for item in self.list()["recipes"] if item["id"] == rid)
@@ -185,15 +213,17 @@ class JailbreakStore:
         recipe = next((item for item in data["recipes"] if item.get("id") == rid), None)
         if recipe is None:
             raise JailbreakError("recipe not found")
+        if recipe.get("type") != technique:
+            raise JailbreakError("injection type does not match recipe")
         clean = str(value or "").strip()
         if len(clean) > 16000:
             raise JailbreakError("injection text exceeds 16000 characters")
-        ref = recipe["techniques"][technique]["secret_ref"]
+        ref = recipe["secret"]["secret_ref"]
         if clean:
             self.secrets.set(ref, clean)
         else:
             self.secrets.delete(ref)
-        recipe["techniques"][technique]["configured"] = bool(clean)
+        recipe["secret"]["configured"] = bool(clean)
         self._save(data)
         return next(item for item in self.list()["recipes"] if item["id"] == rid)
 
@@ -202,18 +232,20 @@ class JailbreakStore:
         recipe = next((item for item in data["recipes"] if item.get("id") == rid), None)
         if recipe is None:
             raise JailbreakError("recipe not found")
-        for entry in (recipe.get("techniques") or {}).values():
-            if isinstance(entry, dict) and entry.get("secret_ref"):
-                self.secrets.delete(entry["secret_ref"])
+        entry = recipe.get("secret") or {}
+        if entry.get("secret_ref"):
+            self.secrets.delete(entry["secret_ref"])
         data["recipes"] = [item for item in data["recipes"] if item.get("id") != rid]
         data["assignments"] = {
-            profile: assigned for profile, assigned in data["assignments"].items() if assigned != rid
+            profile: {kind: assigned for kind, assigned in mappings.items() if assigned != rid}
+            for profile, mappings in data["assignments"].items() if isinstance(mappings, dict)
         }
+        data["assignments"] = {profile: mappings for profile, mappings in data["assignments"].items() if mappings}
         self._save(data)
         return self.list()
 
     def configure(self, *, enabled: bool | None = None, profile_id: str | None = None,
-                  recipe_id: str | None = None) -> dict[str, Any]:
+                  recipe_id: str | None = None, technique: str | None = None) -> dict[str, Any]:
         data = self._load()
         if enabled is not None:
             data["enabled"] = bool(enabled)
@@ -226,9 +258,17 @@ class JailbreakStore:
                     raise JailbreakError("recipe not found")
                 if pid not in (recipe.get("profile_ids") or []):
                     raise JailbreakError("recipe is not marked compatible with this profile")
-                data["assignments"][pid] = rid
+                kind = recipe["type"]
+                data["assignments"].setdefault(pid, {})[kind] = rid
             else:
-                data["assignments"].pop(pid, None)
+                if technique is not None:
+                    if technique not in SECRET_TYPES:
+                        raise JailbreakError("invalid injection type")
+                    data["assignments"].setdefault(pid, {}).pop(technique, None)
+                    if not data["assignments"][pid]:
+                        data["assignments"].pop(pid, None)
+                else:
+                    data["assignments"].pop(pid, None)
         self._save(data)
         return self.list()
 
@@ -237,14 +277,16 @@ class JailbreakStore:
         pid, data = _id(profile_id), self._load()
         if not data.get("enabled"):
             return {}
-        rid = (data.get("assignments") or {}).get(pid)
-        recipe = next((item for item in data["recipes"] if item.get("id") == rid), None)
-        if not recipe or not recipe.get("enabled", True) or pid not in (recipe.get("profile_ids") or []):
-            return {}
         result: dict[str, str] = {}
-        for kind in SECRET_TYPES:
-            entry = (recipe.get("techniques") or {}).get(kind) or {}
-            if entry.get("configured") and entry.get("secret_ref"):
+        assignments = (data.get("assignments") or {}).get(pid) or {}
+        for kind, rid in assignments.items():
+            recipe = next((item for item in data["recipes"] if item.get("id") == rid), None)
+            if not recipe or recipe.get("type") != kind or not recipe.get("enabled", True):
+                continue
+            if pid not in (recipe.get("profile_ids") or []):
+                continue
+            entry = recipe.get("secret") or {}
+            if kind in SECRET_TYPES and entry.get("configured") and entry.get("secret_ref"):
                 value = self.secrets.get(entry["secret_ref"])
                 if value:
                     result[kind] = value
