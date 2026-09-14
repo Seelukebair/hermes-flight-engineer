@@ -92,6 +92,16 @@ The compact library creates, edits, clones, disables, and deletes reusable
 entries. Profile attachment automatically records explicit compatibility. No
 fuzzy model matching is used for prompt injection.
 
+Generated internal ids are env-safe and receive `-2`, `-3`, and later suffixes
+when a friendly-name slug already exists. Prompt bodies may contain normal JSON,
+quotes, braces, Unicode, and line breaks; malformed Unicode and unsafe control
+characters are rejected before storage.
+
+System prompt injection and assistant prefill use standard chat-message fields.
+Thinking prefill currently uses `reasoning_content`, whose interpretation is
+runtime and chat-template specific. Treat it as profile-compatible only after
+validation; model-specific think-token adapters are intentionally not guessed.
+
 Prompt bodies are stored through Hermes's profile-scoped `.env` writer. They
 are write-only in the dashboard and agent tool: APIs expose only recipe
 metadata and configured flags. The optional loopback adapter forwards to the

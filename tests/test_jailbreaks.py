@@ -49,6 +49,20 @@ class JailbreakTests(unittest.TestCase):
         self.assertEqual(state["assignments"]["smart-31b"]["assistant_prefill"], "gemma-balanced")
         self.assertEqual(state["recipes"][0]["profile_ids"], ["smart-31b"])
 
+    def test_duplicate_generated_id_gets_numeric_suffix(self):
+        self.assertEqual(self.store.create("same-name", "First", "system_framing")["id"], "same-name")
+        self.assertEqual(self.store.create("same-name", "Second", "system_framing")["id"], "same-name-2")
+        self.assertEqual(self.store.create("same-name", "Third", "system_framing")["id"], "same-name-3")
+
+    def test_prompt_validation_allows_json_text_and_rejects_control_bytes(self):
+        self.store.create("safe", "Safe", "system_framing")
+        value = 'Keep {"tool": "value"} and quoted text.\nUnicode: cafe'
+        self.store.set_secret("safe", "system_framing", value)
+        self.store.configure(enabled=True, profile_id="smart-31b", recipe_id="safe")
+        self.assertEqual(self.store.resolve("smart-31b")["system_framing"], value)
+        with self.assertRaisesRegex(JailbreakError, "control characters"):
+            self.store.set_secret("safe", "system_framing", "bad\x00value")
+
     def test_each_type_has_an_independent_profile_assignment(self):
         for recipe_id, kind, value in (
             ("system-one", "system_framing", "system"),

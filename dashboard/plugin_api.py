@@ -185,13 +185,13 @@ def create_jailbreak(request: JailbreakCreateRequest):
     store = JailbreakStore()
     created = False
     try:
-        store.create(request.recipe_id, request.name, request.recipe_type, request.description)
+        entry = store.create(request.recipe_id, request.name, request.recipe_type, request.description)
         created = True
-        return store.set_secret(request.recipe_id, request.recipe_type, request.value)
+        return store.set_secret(entry["id"], request.recipe_type, request.value)
     except JailbreakError as exc:
         if created:
             try:
-                store.delete(request.recipe_id)
+                store.delete(entry["id"])
             except JailbreakError:
                 pass
         raise _jailbreak_error(exc) from exc

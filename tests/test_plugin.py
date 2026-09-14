@@ -69,7 +69,7 @@ class PluginTests(unittest.TestCase):
         self.assertIn("Live inference", dashboard)
         self.assertIn("Make default", dashboard)
         self.assertIn("Jailbreak methods", dashboard)
-        self.assertIn("Starts the model's private reasoning channel", dashboard)
+        self.assertIn("Think formats are not standardized", dashboard)
         self.assertIn("Enter the actual injection text", dashboard)
         self.assertIn("Save to library", dashboard)
         self.assertIn("onAssignJailbreak", dashboard)

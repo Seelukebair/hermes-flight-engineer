@@ -16,6 +16,7 @@
   }
 
   function number(value) { return Number(value || 0).toLocaleString(); }
+  function safePromptText(value) { return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ""); }
 
   function Stat(props) {
     return h("div", { className: "flight-engineer-stat" },
@@ -145,7 +146,7 @@
 
   const injectionHelp = {
     system_framing: "Injects text into Hermes's system prompt before generation. This provides strong instruction-level steering, but it is more likely to conflict with Hermes policy or tool guidance.",
-    thinking_prefill: "Starts the model's private reasoning channel with your text. Useful for steering how a compatible reasoning model approaches the request; it is not spoken or shown as the answer.",
+    thinking_prefill: "Starts a compatible model's private reasoning channel through the reasoning_content field. Think formats are not standardized; use this only with a profile validated for that runtime and chat template.",
     assistant_prefill: "Starts the visible assistant answer with your text and asks the model to continue it. This is the simplest refusal-steering method, but the opening may appear in the reply."
   };
   const injectionLabels = { system_framing: "System prompt injection", thinking_prefill: "Thinking prefill", assistant_prefill: "Assistant prefill" };
@@ -185,7 +186,7 @@
         h("section", { className: "flight-engineer-injection-type" },
           h("textarea", { value: secret, rows: 4, maxLength: 16000,
             placeholder: recipe.configured ? "Protected value configured. Enter replacement text, or leave blank to keep it." : "Enter protected " + injectionLabels[recipe.type].toLowerCase() + " text",
-            "aria-label": injectionLabels[recipe.type] + " protected text", onChange: function (e) { setSecret(e.target.value); } }),
+            "aria-label": injectionLabels[recipe.type] + " protected text", onChange: function (e) { setSecret(safePromptText(e.target.value)); } }),
           recipe.configured ? h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onClear(recipe.id, recipe.type); } }, "Clear protected text") : null),
         h("div", { className: "flight-engineer-actions" },
           h("label", { className: "flight-engineer-toggle" }, h("input", { type: "checkbox", checked: Boolean(draft.enabled), onChange: function (e) { setValue("enabled", e.target.checked); } }), h("span", null, "Entry available")),
@@ -225,8 +226,8 @@
             h("input", { value: newName, placeholder: "Friendly name", maxLength: 80, onChange: function (e) { updateNewName(e.target.value); } })),
           h("div", { className: "flight-engineer-create-text" },
             h("label", null, "Protected " + injectionLabels[activeType].toLowerCase() + " text"),
-            h("p", { className: "flight-engineer-helper" }, "This value is write-only after saving. Use multiple lines as needed."),
-            h("textarea", { value: newSecret, rows: 6, maxLength: 16000, placeholder: "Enter the actual injection text", onChange: function (e) { setNewSecret(e.target.value); } })),
+            h("p", { className: "flight-engineer-helper" }, "This value is write-only after saving. Quotes, braces, Unicode, and multiple lines are safe; unsupported control characters are rejected."),
+            h("textarea", { value: newSecret, rows: 6, maxLength: 16000, placeholder: "Enter the actual injection text", onChange: function (e) { setNewSecret(safePromptText(e.target.value)); } })),
           h("div", { className: "flight-engineer-create-actions" },
             h(Button, { outlined: true, disabled: props.busy || !newId || !newName || !newSecret.trim(), onClick: function () { props.onCreate(newId, newName, activeType, newSecret); setNewId(""); setNewName(""); setNewSecret(""); } }, "Save to library"))),
         h("details", { className: "flight-engineer-library", open: visibleRecipes.length > 0 },

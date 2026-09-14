@@ -12,6 +12,7 @@ from typing import Any
 
 
 RECIPE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+UNSAFE_PROMPT_TEXT = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 SECRET_TYPES = ("system_framing", "thinking_prefill", "assistant_prefill")
 DEFAULT_STATE_PATH = Path.home() / ".hermes" / "flight-engineer" / "jailbreaks.json"
 DEFAULT_ENV_PATH = Path.home() / ".hermes" / ".env"
@@ -31,6 +32,34 @@ def _id(value: str) -> str:
 def _secret_ref(recipe_id: str, technique: str) -> str:
     suffix = {"system_framing": "SYSTEM", "thinking_prefill": "THINKING", "assistant_prefill": "ASSISTANT"}[technique]
     return f"FLIGHT_ENGINEER_JAILBREAK_{recipe_id.upper().replace('-', '_')}_{suffix}"
+
+
+def _prompt_text(value: str, *, limit: int = 16000) -> str:
+    """Normalize pasted text while preserving JSON-safe quotes, braces, and Unicode."""
+    clean = str(value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if len(clean) > limit:
+        raise JailbreakError(f"injection text exceeds {limit} characters")
+    if UNSAFE_PROMPT_TEXT.search(clean):
+        raise JailbreakError("injection text contains unsupported control characters")
+    try:
+        clean.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise JailbreakError("injection text contains malformed Unicode") from exc
+    return clean
+
+
+def _unique_id(data: dict[str, Any], requested: str) -> str:
+    """Return an env-safe id, suffixing name collisions as -2, -3, and so on."""
+    existing = {item.get("id") for item in data.get("recipes", []) if isinstance(item, dict)}
+    if requested not in existing:
+        return requested
+    number = 2
+    while True:
+        suffix = f"-{number}"
+        candidate = requested[:64 - len(suffix)].rstrip("-") + suffix
+        if candidate not in existing:
+            return candidate
+        number += 1
 
 
 class HermesSecretStore:
@@ -168,15 +197,14 @@ class JailbreakStore:
         return self._public(self._load())
 
     def create(self, recipe_id: str, name: str, recipe_type: str, description: str = "") -> dict[str, Any]:
-        rid = _id(recipe_id)
+        requested = _id(recipe_id)
         clean_name = str(name or "").strip()
         if not clean_name or len(clean_name) > 80:
             raise JailbreakError("recipe name must be 1-80 characters")
         if recipe_type not in SECRET_TYPES:
             raise JailbreakError("invalid injection type")
         data = self._load()
-        if any(item.get("id") == rid for item in data["recipes"]):
-            raise JailbreakError("recipe id already exists")
+        rid = _unique_id(data, requested)
         data["recipes"].append({
             "id": rid, "name": clean_name, "description": str(description or "").strip()[:240],
             "type": recipe_type, "enabled": True, "profile_ids": [],
@@ -215,9 +243,7 @@ class JailbreakStore:
             raise JailbreakError("recipe not found")
         if recipe.get("type") != technique:
             raise JailbreakError("injection type does not match recipe")
-        clean = str(value or "").strip()
-        if len(clean) > 16000:
-            raise JailbreakError("injection text exceeds 16000 characters")
+        clean = _prompt_text(value)
         ref = recipe["secret"]["secret_ref"]
         if clean:
             self.secrets.set(ref, clean)
