@@ -75,6 +75,9 @@
     const [draft, setDraft] = useState(Object.assign({}, profile));
     const [cloneId, setCloneId] = useState(profile.id + "-tuning");
     const [cloneLabel, setCloneLabel] = useState(profile.label + " (tuning)");
+    const [methodPickerOpen, setMethodPickerOpen] = useState(false);
+    const [methodSearch, setMethodSearch] = useState("");
+    const [methodFilter, setMethodFilter] = useState("all");
     useEffect(function () { setDraft(Object.assign({}, profile)); }, [profile]);
     function setValue(key, value) { setDraft(function (current) { return Object.assign({}, current, { [key]: value }); }); }
     const runtimeKeys = ["context_length", "parallel_slots", "gpu_layers", "kv_cache", "mmproj_offload", "batch_size", "ubatch_size", "image_min_tokens", "image_max_tokens"];
@@ -85,7 +88,10 @@
       return ((props.jailbreaks || {}).recipes || []).find(function (recipe) { return recipe.id === assigned[kind]; });
     }).filter(Boolean);
     const availableRecipes = ((props.jailbreaks || {}).recipes || []).filter(function (recipe) {
-      return recipe.enabled && assigned[recipe.type] !== recipe.id;
+      const query = methodSearch.trim().toLowerCase();
+      return recipe.enabled && assigned[recipe.type] !== recipe.id &&
+        (methodFilter === "all" || recipe.type === methodFilter) &&
+        (!query || (recipe.name + " " + (recipe.description || "")).toLowerCase().includes(query));
     });
 
     return h("details", { className: "flight-engineer-profile", "data-active": String(profile.active) },
@@ -118,19 +124,26 @@
           h(Stepper, { label: "Minimum image tokens", value: draft.image_min_tokens, min: 64, max: 4096, step: 64, disabled: locked, onChange: function (v) { setValue("image_min_tokens", v); } }),
           h(Stepper, { label: "Maximum image tokens", value: draft.image_max_tokens, min: 64, max: 4096, step: 64, disabled: locked, onChange: function (v) { setValue("image_max_tokens", v); } })),
         h(SettingSection, { title: "Jailbreak methods" },
-          h("p", { className: "flight-engineer-helper" }, "Attach up to one saved entry of each type. Adding another entry of the same type replaces the current one."),
-          h("div", { className: "flight-engineer-profile-methods" },
-            selectedRecipes.map(function (recipe) {
-              return h("div", { key: recipe.id, className: "flight-engineer-method-chip" },
-                h("span", null, recipe.name), h(TypeTag, { type: recipe.type }),
-                h("button", { type: "button", title: "Remove " + recipe.name, "aria-label": "Remove " + recipe.name, onClick: function () { props.onRemoveJailbreak(profile.id, recipe.type); } }, "x"));
-            }),
-            h("details", { className: "flight-engineer-method-picker" },
-              h("summary", { title: "Add a jailbreak method", "aria-label": "Add a jailbreak method" }, "+"),
-              h("div", null, availableRecipes.length ? availableRecipes.map(function (recipe) {
-                return h("button", { key: recipe.id, type: "button", onClick: function (event) { props.onAssignJailbreak(profile.id, recipe.id); event.currentTarget.closest("details").removeAttribute("open"); } },
+          h("div", { className: "flight-engineer-method-manager" },
+            h("p", { className: "flight-engineer-helper" }, "Attach up to one saved entry of each type. Adding another entry of the same type replaces the current one."),
+            h("div", { className: "flight-engineer-profile-methods" },
+              selectedRecipes.map(function (recipe) {
+                return h("div", { key: recipe.id, className: "flight-engineer-method-chip" },
+                  h("span", null, recipe.name), h(TypeTag, { type: recipe.type }),
+                  h("button", { type: "button", title: "Remove " + recipe.name, "aria-label": "Remove " + recipe.name, onClick: function () { props.onRemoveJailbreak(profile.id, recipe.type); } }, "x"));
+              }),
+              h("button", { type: "button", className: "flight-engineer-method-add", title: "Add a jailbreak method", "aria-label": "Add a jailbreak method", "aria-expanded": String(methodPickerOpen), onClick: function () { setMethodPickerOpen(!methodPickerOpen); } }, "+")),
+            methodPickerOpen ? h("div", { className: "flight-engineer-method-selector" },
+              h("div", { className: "flight-engineer-method-selector-tools" },
+                h("input", { type: "search", value: methodSearch, placeholder: "Search saved methods", "aria-label": "Search saved jailbreak methods", onChange: function (event) { setMethodSearch(event.target.value); } }),
+                h("div", { className: "flight-engineer-method-filters", role: "group", "aria-label": "Filter jailbreak methods by type" },
+                  [["all", "All"], ["system_framing", "System"], ["thinking_prefill", "Thinking"], ["assistant_prefill", "Assistant"]].map(function (option) {
+                    return h("button", { key: option[0], type: "button", "data-type": option[0], className: methodFilter === option[0] ? "is-active" : "", onClick: function () { setMethodFilter(option[0]); } }, option[1]);
+                  }))),
+              h("div", { className: "flight-engineer-method-results" }, availableRecipes.length ? availableRecipes.map(function (recipe) {
+                return h("button", { key: recipe.id, type: "button", onClick: function () { props.onAssignJailbreak(profile.id, recipe.id); setMethodPickerOpen(false); setMethodSearch(""); } },
                   h("span", null, recipe.name), h(TypeTag, { type: recipe.type }));
-              }) : h("span", { className: "flight-engineer-helper" }, "Create an entry in the library below."))))),
+              }) : h("span", { className: "flight-engineer-helper" }, "No matching saved methods. Create one in the library below."))) : null)),
         locked ? h("div", { className: "flight-engineer-clone" },
           h("input", { value: cloneLabel, "aria-label": "New tuning profile name", onChange: function (e) { setCloneLabel(e.target.value); } }),
           h("input", { value: cloneId, "aria-label": "New tuning profile id", onChange: function (e) { setCloneId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } }),
@@ -254,7 +267,9 @@
     function cloneProfile(source, target, label) { return mutate(function () { return request("/profiles/clone", { method: "POST", body: JSON.stringify({ source_id: source, target_id: target, label: label }) }); }, "Tuning profile created."); }
     function setDefaultProfile(id) { return mutate(function () { return request("/profiles/" + encodeURIComponent(id) + "/default", { method: "POST" }); }, "Default profile changed for the next host boot."); }
     function rollbackProfile() { return mutate(function () { return request("/rollback", { method: "POST", body: JSON.stringify({ confirm_interrupt: confirmed }) }); }, "Previous profile restored."); }
-    function configureJailbreaks(patch) { return mutate(function () { return request("/jailbreaks", { method: "PATCH", body: JSON.stringify(patch) }); }, "Jailbreak configuration saved."); }
+    function configureJailbreaks(patch) { return mutate(async function () {
+      setJailbreaks(await request("/jailbreaks", { method: "PATCH", body: JSON.stringify(patch) }));
+    }, "Jailbreak configuration saved."); }
     function createJailbreak(id, name, recipeType, value) { return mutate(function () { return request("/jailbreaks", { method: "POST", body: JSON.stringify({ recipe_id: id, name: name, recipe_type: recipeType, value: value }) }); }, "Jailbreak entry and protected text saved."); }
     function saveJailbreak(id, patch, secrets) { return mutate(async function () {
       await request("/jailbreaks/" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify(patch) });
