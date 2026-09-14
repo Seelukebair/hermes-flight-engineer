@@ -43,10 +43,11 @@ class JailbreakTests(unittest.TestCase):
         self.store.set_secret("gemma-balanced", "assistant_prefill", "")
         self.assertEqual(self.store.resolve("smart-31b"), {})
 
-    def test_assignment_requires_compatibility(self):
+    def test_assignment_establishes_explicit_compatibility(self):
         self.store.create("gemma-balanced", "Gemma balanced", "assistant_prefill")
-        with self.assertRaisesRegex(JailbreakError, "compatible"):
-            self.store.configure(profile_id="smart-31b", recipe_id="gemma-balanced")
+        state = self.store.configure(profile_id="smart-31b", recipe_id="gemma-balanced")
+        self.assertEqual(state["assignments"]["smart-31b"]["assistant_prefill"], "gemma-balanced")
+        self.assertEqual(state["recipes"][0]["profile_ids"], ["smart-31b"])
 
     def test_each_type_has_an_independent_profile_assignment(self):
         for recipe_id, kind, value in (
@@ -66,6 +67,18 @@ class JailbreakTests(unittest.TestCase):
         self.assertEqual(self.store.resolve("smart-31b"), {
             "system_framing": "system", "assistant_prefill": "assistant",
         })
+
+    def test_assigning_same_type_replaces_only_that_type(self):
+        for recipe_id, kind in (
+            ("system-one", "system_framing"),
+            ("system-two", "system_framing"),
+            ("assistant-one", "assistant_prefill"),
+        ):
+            self.store.create(recipe_id, recipe_id, kind)
+            self.store.configure(profile_id="smart-31b", recipe_id=recipe_id)
+        assignments = self.store.list()["assignments"]["smart-31b"]
+        self.assertEqual(assignments["system_framing"], "system-two")
+        self.assertEqual(assignments["assistant_prefill"], "assistant-one")
 
     def test_injection_keeps_types_separate(self):
         payload = {"messages": [{"role": "system", "content": "base"}, {"role": "user", "content": "hello"}]}
@@ -91,6 +104,16 @@ class JailbreakTests(unittest.TestCase):
         self.assertEqual(result["recipes"], [])
         self.assertEqual(result["assignments"], {})
         self.assertEqual(self.secrets.values, {})
+
+    def test_clone_copies_metadata_and_protected_value_without_exposing_it(self):
+        self.store.create("source", "Source", "system_framing")
+        self.store.set_secret("source", "system_framing", "private multiline\nvalue")
+        cloned = self.store.clone("source", "copy", "Copy")
+        self.assertTrue(cloned["configured"])
+        self.assertNotIn("private", str(cloned))
+        self.store.update("copy", profile_ids=["smart-31b"])
+        self.store.configure(enabled=True, profile_id="smart-31b", recipe_id="copy")
+        self.assertEqual(self.store.resolve("smart-31b")["system_framing"], "private multiline\nvalue")
 
 
 if __name__ == "__main__":

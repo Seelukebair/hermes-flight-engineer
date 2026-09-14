@@ -24,8 +24,8 @@ simultaneously loaded models.
   native MoA boundary. Plugin skills are namespaced in current Hermes; the bare
   name is not valid for `--skills` preloading.
 - Dashboard tab: live inference/system meters, collapsed profile rows, bounded
-  tuning controls, active/default selection, a reusable jailbreak recipe
-  library, and a link to native MoA settings.
+  tuning controls, active/default selection, profile-attached jailbreak
+  methods, a compact reusable library, and a link to native MoA settings.
 - Root-owned control wrapper: permits named profile operations and bounded JSON
   edits on stdin; no arbitrary shell, paths, images, force switch, or services.
 
@@ -80,12 +80,17 @@ at the next host boot; normal service reloads preserve the current selection.
 Saving an active tuning profile does not silently restart inference. Use the
 separate confirmed `Apply & reload` action.
 
-## Jailbreak Recipe Library
+## Jailbreak Method Library
 
-Version 0.3 adds three explicit libraries: system prompt injection, thinking prefill,
-and assistant prefill. Each friendly-named entry belongs to one type, can be
-marked compatible with multiple validated profiles, and is assigned per type
-and profile. No fuzzy model matching is used for prompt injection.
+Version 0.4 keeps three explicit method types: system prompt injection, thinking
+prefill, and assistant prefill. Attach methods from the expanded model profile
+with its `+` picker. Selected methods appear by friendly name and a color-coded
+type tag. A profile can use one entry of each type; choosing another entry of the
+same type replaces that type without disturbing the others.
+
+The compact library creates, edits, clones, disables, and deletes reusable
+entries. Profile attachment automatically records explicit compatibility. No
+fuzzy model matching is used for prompt injection.
 
 Prompt bodies are stored through Hermes's profile-scoped `.env` writer. They
 are write-only in the dashboard and agent tool: APIs expose only recipe

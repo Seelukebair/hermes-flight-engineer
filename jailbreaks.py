@@ -244,6 +244,27 @@ class JailbreakStore:
         self._save(data)
         return self.list()
 
+    def clone(self, source_id: str, target_id: str, name: str) -> dict[str, Any]:
+        source, data = _id(source_id), self._load()
+        recipe = next((item for item in data["recipes"] if item.get("id") == source), None)
+        if recipe is None:
+            raise JailbreakError("recipe not found")
+        created_id = ""
+        try:
+            created = self.create(target_id, name, recipe["type"], recipe.get("description", ""))
+            created_id = created["id"]
+            self.update(created_id, profile_ids=list(recipe.get("profile_ids") or []))
+            entry = recipe.get("secret") or {}
+            if entry.get("configured") and entry.get("secret_ref"):
+                value = self.secrets.get(entry["secret_ref"])
+                if value:
+                    self.set_secret(created_id, recipe["type"], value)
+            return next(item for item in self.list()["recipes"] if item["id"] == created_id)
+        except Exception:
+            if created_id:
+                self.delete(created_id)
+            raise
+
     def configure(self, *, enabled: bool | None = None, profile_id: str | None = None,
                   recipe_id: str | None = None, technique: str | None = None) -> dict[str, Any]:
         data = self._load()
@@ -257,7 +278,8 @@ class JailbreakStore:
                 if recipe is None:
                     raise JailbreakError("recipe not found")
                 if pid not in (recipe.get("profile_ids") or []):
-                    raise JailbreakError("recipe is not marked compatible with this profile")
+                    recipe.setdefault("profile_ids", []).append(pid)
+                    recipe["profile_ids"] = sorted(set(recipe["profile_ids"]))
                 kind = recipe["type"]
                 data["assignments"].setdefault(pid, {})[kind] = rid
             else:

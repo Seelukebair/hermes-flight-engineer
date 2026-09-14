@@ -79,6 +79,13 @@
     const runtimeKeys = ["context_length", "parallel_slots", "gpu_layers", "kv_cache", "mmproj_offload", "batch_size", "ubatch_size", "image_min_tokens", "image_max_tokens"];
     const runtimeChanged = runtimeKeys.some(function (key) { return draft[key] !== profile[key]; });
     const labelChanged = draft.label !== profile.label;
+    const assigned = ((props.jailbreaks || {}).assignments || {})[profile.id] || {};
+    const selectedRecipes = Object.keys(assigned).map(function (kind) {
+      return ((props.jailbreaks || {}).recipes || []).find(function (recipe) { return recipe.id === assigned[kind]; });
+    }).filter(Boolean);
+    const availableRecipes = ((props.jailbreaks || {}).recipes || []).filter(function (recipe) {
+      return recipe.enabled && assigned[recipe.type] !== recipe.id;
+    });
 
     return h("details", { className: "flight-engineer-profile", "data-active": String(profile.active) },
       h("summary", null,
@@ -109,6 +116,20 @@
         h(SettingSection, { title: "Vision token budget" },
           h(Stepper, { label: "Minimum image tokens", value: draft.image_min_tokens, min: 64, max: 4096, step: 64, disabled: locked, onChange: function (v) { setValue("image_min_tokens", v); } }),
           h(Stepper, { label: "Maximum image tokens", value: draft.image_max_tokens, min: 64, max: 4096, step: 64, disabled: locked, onChange: function (v) { setValue("image_max_tokens", v); } })),
+        h(SettingSection, { title: "Jailbreak methods" },
+          h("p", { className: "flight-engineer-helper" }, "Attach up to one saved entry of each type. Adding another entry of the same type replaces the current one."),
+          h("div", { className: "flight-engineer-profile-methods" },
+            selectedRecipes.map(function (recipe) {
+              return h("div", { key: recipe.id, className: "flight-engineer-method-chip" },
+                h("span", null, recipe.name), h(TypeTag, { type: recipe.type }),
+                h("button", { type: "button", title: "Remove " + recipe.name, "aria-label": "Remove " + recipe.name, onClick: function () { props.onRemoveJailbreak(profile.id, recipe.type); } }, "x"));
+            }),
+            h("details", { className: "flight-engineer-method-picker" },
+              h("summary", { title: "Add a jailbreak method", "aria-label": "Add a jailbreak method" }, "+"),
+              h("div", null, availableRecipes.length ? availableRecipes.map(function (recipe) {
+                return h("button", { key: recipe.id, type: "button", onClick: function (event) { props.onAssignJailbreak(profile.id, recipe.id); event.currentTarget.closest("details").removeAttribute("open"); } },
+                  h("span", null, recipe.name), h(TypeTag, { type: recipe.type }));
+              }) : h("span", { className: "flight-engineer-helper" }, "Create an entry in the library below."))))),
         locked ? h("div", { className: "flight-engineer-clone" },
           h("input", { value: cloneLabel, "aria-label": "New tuning profile name", onChange: function (e) { setCloneLabel(e.target.value); } }),
           h("input", { value: cloneId, "aria-label": "New tuning profile id", onChange: function (e) { setCloneId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } }),
@@ -129,17 +150,16 @@
   };
   const injectionLabels = { system_framing: "System prompt injection", thinking_prefill: "Thinking prefill", assistant_prefill: "Assistant prefill" };
 
+  function TypeTag(props) {
+    return h("span", { className: "flight-engineer-type-tag", "data-type": props.type }, injectionLabels[props.type]);
+  }
+
   function RecipeRow(props) {
     const recipe = props.recipe;
     const [draft, setDraft] = useState(Object.assign({}, recipe));
     const [secret, setSecret] = useState("");
     useEffect(function () { setDraft(Object.assign({}, recipe)); }, [recipe]);
     function setValue(key, value) { setDraft(function (current) { return Object.assign({}, current, { [key]: value }); }); }
-    function toggleProfile(id) {
-      const ids = new Set(draft.profile_ids || []);
-      if (ids.has(id)) ids.delete(id); else ids.add(id);
-      setValue("profile_ids", Array.from(ids));
-    }
     function save() {
       const pending = secret.trim() ? [{ technique: recipe.type, value: secret }] : [];
       props.onSave(recipe.id, { name: draft.name, description: draft.description, enabled: draft.enabled, profile_ids: draft.profile_ids || [] }, pending);
@@ -147,22 +167,20 @@
     }
     return h("details", { className: "flight-engineer-recipe" },
       h("summary", null,
-        h("div", { className: "flight-engineer-recipe-title" }, h("strong", null, recipe.name), h("span", null, recipe.id)),
+        h("div", { className: "flight-engineer-recipe-title", title: "Internal id: " + recipe.id }, h("strong", null, recipe.name), h(TypeTag, { type: recipe.type })),
           h("div", { className: "flight-engineer-summary-actions" },
             h(Badge, null, recipe.enabled ? "enabled" : "disabled"),
           h(Badge, null, recipe.configured ? "configured" : "empty"),
           h("span", { className: "flight-engineer-chevron", "aria-hidden": "true" }, "v"))),
       h("div", { className: "flight-engineer-recipe-body" },
         h("div", { className: "flight-engineer-recipe-grid" },
-          h(Field, { label: "Friendly recipe name" }, h("input", { value: draft.name, maxLength: 80, onChange: function (e) { setValue("name", e.target.value); } })),
-          h(Field, { label: "What this recipe is for" }, h("input", { value: draft.description || "", maxLength: 240, placeholder: "Short compatibility or behavior note", onChange: function (e) { setValue("description", e.target.value); } }))),
+          h(Field, { label: "Friendly name" }, h("input", { value: draft.name, maxLength: 80, onChange: function (e) { setValue("name", e.target.value); } })),
+          h(Field, { label: "What this entry is for" }, h("input", { value: draft.description || "", maxLength: 240, placeholder: "Short behavior or model note", onChange: function (e) { setValue("description", e.target.value); } }))),
         h("div", { className: "flight-engineer-compatibility" },
-          h("strong", null, "Compatible model profiles"),
-          h("span", { className: "flight-engineer-helper" }, "A recipe can be reused, but it runs only on explicitly checked profiles."),
-          h("div", { className: "flight-engineer-profile-checks" }, props.profiles.map(function (profile) {
-            return h("label", { key: profile.id, title: profile.model_file || profile.id },
-              h("input", { type: "checkbox", checked: (draft.profile_ids || []).includes(profile.id), onChange: function () { toggleProfile(profile.id); } }),
-              h("span", null, profile.label));
+          h("strong", null, "Used by profiles"),
+          h("span", { className: "flight-engineer-helper" }, (props.usedProfileIds || []).length ? "This entry is currently attached to these profiles." : "Not attached to a profile yet."),
+          h("div", { className: "flight-engineer-profile-checks" }, props.profiles.filter(function (profile) { return (props.usedProfileIds || []).includes(profile.id); }).map(function (profile) {
+            return h("span", { key: profile.id, title: profile.model_file || profile.id }, profile.label);
           }))),
         h("section", { className: "flight-engineer-injection-type" },
           h("textarea", { value: secret, rows: 4, maxLength: 16000,
@@ -170,9 +188,10 @@
             "aria-label": injectionLabels[recipe.type] + " protected text", onChange: function (e) { setSecret(e.target.value); } }),
           recipe.configured ? h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onClear(recipe.id, recipe.type); } }, "Clear protected text") : null),
         h("div", { className: "flight-engineer-actions" },
-          h("label", { className: "flight-engineer-toggle" }, h("input", { type: "checkbox", checked: Boolean(draft.enabled), onChange: function (e) { setValue("enabled", e.target.checked); } }), h("span", null, "Recipe enabled")),
-          h(Button, { outlined: true, disabled: props.busy, onClick: function () { if (window.confirm("Delete this recipe and its protected text?")) props.onDelete(recipe.id); } }, "Delete recipe"),
-          h(Button, { disabled: props.busy, onClick: save }, "Save recipe"))));
+          h("label", { className: "flight-engineer-toggle" }, h("input", { type: "checkbox", checked: Boolean(draft.enabled), onChange: function (e) { setValue("enabled", e.target.checked); } }), h("span", null, "Entry available")),
+          h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onClone(recipe); } }, "Clone"),
+          h(Button, { outlined: true, disabled: props.busy, onClick: function () { if (window.confirm("Delete this library entry and its protected text?")) props.onDelete(recipe.id); } }, "Delete"),
+          h(Button, { disabled: props.busy, onClick: save }, "Save changes"))));
   }
 
   function JailbreakPanel(props) {
@@ -181,39 +200,41 @@
     const [newSecret, setNewSecret] = useState("");
     const [activeType, setActiveType] = useState("system_framing");
     const visibleRecipes = data.recipes.filter(function (recipe) { return recipe.type === activeType; });
+    function updateNewName(value) {
+      setNewName(value);
+      const base = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
+      const used = new Set(data.recipes.map(function (recipe) { return recipe.id; }));
+      let candidate = base, suffix = 2;
+      while (candidate && used.has(candidate)) candidate = base.slice(0, 58) + "-" + suffix++;
+      setNewId(candidate);
+    }
     const header = h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" },
         h("div", null, h(CardTitle, null, "Jailbreak methods"), h("div", { className: "flight-engineer-stat-label" }, "Choose one of three injection types; protected text is write-only")),
         h("label", { className: "flight-engineer-toggle" }, h("input", { type: "checkbox", checked: Boolean(data.enabled), disabled: props.busy,
           onChange: function (e) { props.onConfigure({ enabled: e.target.checked }); } }), h("span", null, data.enabled ? "Methods active" : "All methods off"))));
     const content = h(CardContent, null,
-        h("div", { className: "flight-engineer-warning" }, "Prompt injection can reduce refusals, but it can also weaken tool discipline or response quality. Recipes apply only to explicitly compatible and assigned local profiles."),
+        h("div", { className: "flight-engineer-warning" }, "Prompt injection can reduce refusals, but it can also weaken tool discipline or response quality. Attach saved entries from inside each model profile."),
         h("div", { className: "flight-engineer-type-tabs", role: "tablist", "aria-label": "Injection type" }, Object.keys(injectionLabels).map(function (kind) {
           const count = data.recipes.filter(function (recipe) { return recipe.type === kind; }).length;
-          return h("button", { key: kind, type: "button", role: "tab", "aria-selected": String(activeType === kind), className: activeType === kind ? "is-active" : "", onClick: function () { setActiveType(kind); } },
+          return h("button", { key: kind, type: "button", role: "tab", "data-type": kind, "aria-selected": String(activeType === kind), className: activeType === kind ? "is-active" : "", onClick: function () { setActiveType(kind); } },
             h("strong", null, injectionLabels[kind]), h("span", null, count + " saved"));
         })),
         h("p", { className: "flight-engineer-type-help" }, injectionHelp[activeType]),
-        h("section", { className: "flight-engineer-assignments" }, h("h4", null, "Profile assignments"),
-          h("div", { className: "flight-engineer-assignment-grid" }, props.profiles.map(function (profile) {
-            const compatible = visibleRecipes.filter(function (recipe) { return recipe.enabled && (recipe.profile_ids || []).includes(profile.id); });
-            const assigned = ((data.assignments[profile.id] || {})[activeType]) || "";
-            return h(Field, { key: profile.id, label: profile.label }, h("select", { value: assigned, title: profile.model_file || profile.id,
-              onChange: function (e) { props.onConfigure({ profile_id: profile.id, recipe_id: e.target.value || null, technique: activeType }); } },
-              h("option", { value: "" }, "No recipe"), compatible.map(function (recipe) { return h("option", { key: recipe.id, value: recipe.id }, recipe.name); })));
-          }))),
         h("details", { className: "flight-engineer-create" }, h("summary", null, "Create " + injectionLabels[activeType].toLowerCase()),
           h("div", { className: "flight-engineer-create-row" },
-            h("input", { value: newName, placeholder: "Friendly name", maxLength: 80, onChange: function (e) { setNewName(e.target.value); } }),
-            h("input", { value: newId, placeholder: "short-recipe-id", maxLength: 64, onChange: function (e) { setNewId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } })),
+            h("input", { value: newName, placeholder: "Friendly name", maxLength: 80, onChange: function (e) { updateNewName(e.target.value); } })),
           h("div", { className: "flight-engineer-create-text" },
             h("label", null, "Protected " + injectionLabels[activeType].toLowerCase() + " text"),
             h("p", { className: "flight-engineer-helper" }, "This value is write-only after saving. Use multiple lines as needed."),
             h("textarea", { value: newSecret, rows: 6, maxLength: 16000, placeholder: "Enter the actual injection text", onChange: function (e) { setNewSecret(e.target.value); } })),
           h("div", { className: "flight-engineer-create-actions" },
-            h(Button, { outlined: true, disabled: props.busy || !newId || !newName || !newSecret.trim(), onClick: function () { props.onCreate(newId, newName, activeType, newSecret); setNewId(""); setNewName(""); setNewSecret(""); } }, "Create and protect"))),
-        h("div", { className: "flight-engineer-recipes" }, visibleRecipes.length ? visibleRecipes.map(function (recipe) {
-          return h(RecipeRow, { key: recipe.id, recipe: recipe, profiles: props.profiles, busy: props.busy, onSave: props.onSave, onClear: props.onClear, onDelete: props.onDelete });
-        }) : h("p", { className: "flight-engineer-helper" }, "No " + injectionLabels[activeType].toLowerCase() + " entries yet. Create one, mark compatible profiles, then assign it above.")));
+            h(Button, { outlined: true, disabled: props.busy || !newId || !newName || !newSecret.trim(), onClick: function () { props.onCreate(newId, newName, activeType, newSecret); setNewId(""); setNewName(""); setNewSecret(""); } }, "Save to library"))),
+        h("details", { className: "flight-engineer-library", open: visibleRecipes.length > 0 },
+          h("summary", null, "Saved " + injectionLabels[activeType].toLowerCase() + " entries (" + visibleRecipes.length + ")"),
+          h("div", { className: "flight-engineer-recipes" }, visibleRecipes.length ? visibleRecipes.map(function (recipe) {
+            const usedProfileIds = props.profiles.filter(function (profile) { return Object.values(data.assignments[profile.id] || {}).includes(recipe.id); }).map(function (profile) { return profile.id; });
+            return h(RecipeRow, { key: recipe.id, recipe: recipe, profiles: props.profiles, usedProfileIds: usedProfileIds, busy: props.busy, onSave: props.onSave, onClear: props.onClear, onDelete: props.onDelete, onClone: props.onClone });
+          }) : h("p", { className: "flight-engineer-helper" }, "No saved entries of this type. Create one here, then attach it with the + button inside a model profile."))));
     return h(Card, null, header, content);
   }
 
@@ -240,6 +261,15 @@
     }, "Recipe saved; protected editors were cleared."); }
     function clearJailbreakSecret(id, technique) { return mutate(function () { return request("/jailbreaks/" + encodeURIComponent(id) + "/secrets/" + technique, { method: "PUT", body: JSON.stringify({ value: "" }) }); }, "Protected text removed."); }
     function deleteJailbreak(id) { return mutate(function () { return request("/jailbreaks/" + encodeURIComponent(id), { method: "DELETE" }); }, "Recipe and protected text removed."); }
+    function assignJailbreak(profileId, recipeId) { return configureJailbreaks({ profile_id: profileId, recipe_id: recipeId }); }
+    function removeJailbreak(profileId, technique) { return configureJailbreaks({ profile_id: profileId, recipe_id: null, technique: technique }); }
+    function cloneJailbreak(recipe) {
+      const name = window.prompt("Name for the cloned entry", recipe.name + " copy");
+      if (!name) return;
+      const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 52) || "recipe-copy";
+      const target = base + "-" + Date.now().toString(36).slice(-5);
+      return mutate(function () { return request("/jailbreaks/clone", { method: "POST", body: JSON.stringify({ source_id: recipe.id, target_id: target, name: name }) }); }, "Entry cloned with its protected text.");
+    }
     const services = status && status.services ? status.services : {};
     const healthy = Object.keys(services).length > 0 && Object.values(services).every(function (v) { return v === "active"; });
     const route = status && status.stable_route ? status.stable_route.provider + "/" + status.stable_route.model : "unknown";
@@ -260,8 +290,8 @@
           h(LevelMeter, { label: "CPU load", percent: sys.cpu_load_percent, value: number(sys.cpu_load_percent) + "%", minLabel: "0%", maxLabel: "100%" }),
           h(LevelMeter, { label: "System memory", percent: ramPercent, value: number(sys.ram_used_mb) + " / " + number(sys.ram_total_mb) + " MB", minLabel: "0", maxLabel: number(sys.ram_total_mb) + " MB" })))),
       h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Model profiles"), h("div", { className: "flight-engineer-stat-label" }, "Profile name and primary model stay visible; expand to tune runtime settings")), h("div", { className: "flight-engineer-actions" }, h("label", { className: "flight-engineer-confirm" }, h("input", { type: "checkbox", checked: confirmed, onChange: function (e) { setConfirmed(e.target.checked); } }), "Allow interrupting reloads"), h(Button, { outlined: true, onClick: function () { window.location.href = "/models"; } }, "Open MoA settings")))),
-        h(CardContent, null, error ? h("p", { className: "flight-engineer-error" }, error) : null, notice ? h("p", { className: "flight-engineer-notice" }, notice) : null, h("div", { className: "flight-engineer-profiles" }, profiles.map(function (profile) { return h(ProfileRow, { key: profile.id, profile: profile, busy: busy, confirmed: confirmed, onSave: saveProfile, onClone: cloneProfile, onApply: applyProfile, onSwitch: switchProfile, onDefault: setDefaultProfile }); })))),
-      h(JailbreakPanel, { data: jailbreaks, profiles: profiles, busy: busy, onConfigure: configureJailbreaks, onCreate: createJailbreak, onSave: saveJailbreak, onClear: clearJailbreakSecret, onDelete: deleteJailbreak }));
+        h(CardContent, null, error ? h("p", { className: "flight-engineer-error" }, error) : null, notice ? h("p", { className: "flight-engineer-notice" }, notice) : null, h("div", { className: "flight-engineer-profiles" }, profiles.map(function (profile) { return h(ProfileRow, { key: profile.id, profile: profile, jailbreaks: jailbreaks, busy: busy, confirmed: confirmed, onSave: saveProfile, onClone: cloneProfile, onApply: applyProfile, onSwitch: switchProfile, onDefault: setDefaultProfile, onAssignJailbreak: assignJailbreak, onRemoveJailbreak: removeJailbreak }); })))),
+      h(JailbreakPanel, { data: jailbreaks, profiles: profiles, busy: busy, onConfigure: configureJailbreaks, onCreate: createJailbreak, onSave: saveJailbreak, onClear: clearJailbreakSecret, onDelete: deleteJailbreak, onClone: cloneJailbreak }));
   }
   window.__HERMES_PLUGINS__.register("flight-engineer", FlightEngineerPage);
 })();

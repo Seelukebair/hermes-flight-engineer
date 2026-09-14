@@ -78,6 +78,12 @@ class JailbreakConfigRequest(BaseModel):
     technique: str | None = None
 
 
+class JailbreakCloneRequest(BaseModel):
+    source_id: str
+    target_id: str
+    name: str = Field(min_length=1, max_length=80)
+
+
 def _http_error(exc: FlightEngineerError) -> HTTPException:
     message = str(exc)
     status = 409 if "active request" in message or "confirmation" in message else 500
@@ -203,6 +209,14 @@ def update_jailbreak(recipe_id: str, request: JailbreakUpdateRequest):
 def delete_jailbreak(recipe_id: str):
     try:
         return JailbreakStore().delete(recipe_id)
+    except JailbreakError as exc:
+        raise _jailbreak_error(exc) from exc
+
+
+@router.post("/jailbreaks/clone")
+def clone_jailbreak(request: JailbreakCloneRequest):
+    try:
+        return JailbreakStore().clone(request.source_id, request.target_id, request.name)
     except JailbreakError as exc:
         raise _jailbreak_error(exc) from exc
 
