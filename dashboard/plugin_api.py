@@ -57,6 +57,7 @@ class JailbreakCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     recipe_type: str
     description: str = Field(default="", max_length=240)
+    value: str = Field(min_length=1, max_length=16000)
 
 
 class JailbreakUpdateRequest(BaseModel):
@@ -175,9 +176,18 @@ def jailbreaks():
 
 @router.post("/jailbreaks")
 def create_jailbreak(request: JailbreakCreateRequest):
+    store = JailbreakStore()
+    created = False
     try:
-        return JailbreakStore().create(request.recipe_id, request.name, request.recipe_type, request.description)
+        store.create(request.recipe_id, request.name, request.recipe_type, request.description)
+        created = True
+        return store.set_secret(request.recipe_id, request.recipe_type, request.value)
     except JailbreakError as exc:
+        if created:
+            try:
+                store.delete(request.recipe_id)
+            except JailbreakError:
+                pass
         raise _jailbreak_error(exc) from exc
 
 

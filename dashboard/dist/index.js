@@ -178,6 +178,7 @@
   function JailbreakPanel(props) {
     const data = props.data || { enabled: false, assignments: {}, recipes: [] };
     const [newId, setNewId] = useState(""), [newName, setNewName] = useState("");
+    const [newSecret, setNewSecret] = useState("");
     const [activeType, setActiveType] = useState("system_framing");
     const visibleRecipes = data.recipes.filter(function (recipe) { return recipe.type === activeType; });
     const header = h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" },
@@ -203,8 +204,13 @@
         h("details", { className: "flight-engineer-create" }, h("summary", null, "Create " + injectionLabels[activeType].toLowerCase()),
           h("div", { className: "flight-engineer-create-row" },
             h("input", { value: newName, placeholder: "Friendly name", maxLength: 80, onChange: function (e) { setNewName(e.target.value); } }),
-            h("input", { value: newId, placeholder: "short-recipe-id", maxLength: 64, onChange: function (e) { setNewId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } }),
-            h(Button, { outlined: true, disabled: props.busy || !newId || !newName, onClick: function () { props.onCreate(newId, newName, activeType); setNewId(""); setNewName(""); } }, "Create"))),
+            h("input", { value: newId, placeholder: "short-recipe-id", maxLength: 64, onChange: function (e) { setNewId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } })),
+          h("div", { className: "flight-engineer-create-text" },
+            h("label", null, "Protected " + injectionLabels[activeType].toLowerCase() + " text"),
+            h("p", { className: "flight-engineer-helper" }, "This value is write-only after saving. Use multiple lines as needed."),
+            h("textarea", { value: newSecret, rows: 6, maxLength: 16000, placeholder: "Enter the actual injection text", onChange: function (e) { setNewSecret(e.target.value); } })),
+          h("div", { className: "flight-engineer-create-actions" },
+            h(Button, { outlined: true, disabled: props.busy || !newId || !newName || !newSecret.trim(), onClick: function () { props.onCreate(newId, newName, activeType, newSecret); setNewId(""); setNewName(""); setNewSecret(""); } }, "Create and protect"))),
         h("div", { className: "flight-engineer-recipes" }, visibleRecipes.length ? visibleRecipes.map(function (recipe) {
           return h(RecipeRow, { key: recipe.id, recipe: recipe, profiles: props.profiles, busy: props.busy, onSave: props.onSave, onClear: props.onClear, onDelete: props.onDelete });
         }) : h("p", { className: "flight-engineer-helper" }, "No " + injectionLabels[activeType].toLowerCase() + " entries yet. Create one, mark compatible profiles, then assign it above.")));
@@ -227,7 +233,7 @@
     function setDefaultProfile(id) { return mutate(function () { return request("/profiles/" + encodeURIComponent(id) + "/default", { method: "POST" }); }, "Default profile changed for the next host boot."); }
     function rollbackProfile() { return mutate(function () { return request("/rollback", { method: "POST", body: JSON.stringify({ confirm_interrupt: confirmed }) }); }, "Previous profile restored."); }
     function configureJailbreaks(patch) { return mutate(function () { return request("/jailbreaks", { method: "PATCH", body: JSON.stringify(patch) }); }, "Jailbreak configuration saved."); }
-    function createJailbreak(id, name, recipeType) { return mutate(function () { return request("/jailbreaks", { method: "POST", body: JSON.stringify({ recipe_id: id, name: name, recipe_type: recipeType }) }); }, "Jailbreak entry created."); }
+    function createJailbreak(id, name, recipeType, value) { return mutate(function () { return request("/jailbreaks", { method: "POST", body: JSON.stringify({ recipe_id: id, name: name, recipe_type: recipeType, value: value }) }); }, "Jailbreak entry and protected text saved."); }
     function saveJailbreak(id, patch, secrets) { return mutate(async function () {
       await request("/jailbreaks/" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify(patch) });
       for (const secret of secrets) await request("/jailbreaks/" + encodeURIComponent(id) + "/secrets/" + secret.technique, { method: "PUT", body: JSON.stringify({ value: secret.value }) });

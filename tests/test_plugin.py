@@ -70,6 +70,8 @@ class PluginTests(unittest.TestCase):
         self.assertIn("Make default", dashboard)
         self.assertIn("Jailbreak methods", dashboard)
         self.assertIn("Starts the model's private reasoning channel", dashboard)
+        self.assertIn("Enter the actual injection text", dashboard)
+        self.assertIn("Create and protect", dashboard)
         self.assertNotIn('profile.active ? "active" : profile.status', dashboard)
         self.assertIn('exec "$MANAGER" update "$profile"', wrapper)
         self.assertNotIn("eval ", wrapper)
