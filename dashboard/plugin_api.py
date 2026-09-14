@@ -234,6 +234,10 @@ def set_jailbreak_secret(recipe_id: str, technique: str, request: JailbreakSecre
 @router.patch("/jailbreaks")
 def configure_jailbreaks(request: JailbreakConfigRequest):
     try:
+        if request.profile_id is not None:
+            valid_profiles = {profile["id"] for profile in FlightEngineer().profiles()}
+            if request.profile_id not in valid_profiles:
+                raise HTTPException(status_code=404, detail="model profile not found; refresh Flight Engineer")
         return JailbreakStore().configure(**request.model_dump(exclude_none=True))
     except JailbreakError as exc:
         raise _jailbreak_error(exc) from exc

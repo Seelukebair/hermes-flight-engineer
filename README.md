@@ -84,7 +84,9 @@ separate confirmed `Apply & reload` action.
 
 Version 0.4 keeps three explicit method types: system prompt injection, thinking
 prefill, and assistant prefill. Attach methods from the expanded model profile
-with its `+` picker. Selected methods appear by friendly name and a color-coded
+with its `+` picker. The bounded selector searches by name/description and can
+filter all, system, thinking, or assistant entries without expanding for a large
+library. Selected methods appear by friendly name and a color-coded
 type tag. A profile can use one entry of each type; choosing another entry of the
 same type replaces that type without disturbing the others.
 
