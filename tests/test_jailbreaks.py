@@ -18,6 +18,9 @@ class MemorySecrets:
     def get(self, name):
         return self.values.get(name, "")
 
+    def delete(self, name):
+        self.values.pop(name, None)
+
 
 class JailbreakTests(unittest.TestCase):
     def setUp(self):
@@ -37,6 +40,8 @@ class JailbreakTests(unittest.TestCase):
         self.assertNotIn("Start here", str(public))
         self.assertEqual(self.store.resolve("smart-31b"), {"assistant_prefill": "Start here"})
         self.assertEqual(self.store.resolve("daily-driver"), {})
+        self.store.set_secret("gemma-balanced", "assistant_prefill", "")
+        self.assertEqual(self.store.resolve("smart-31b"), {})
 
     def test_assignment_requires_compatibility(self):
         self.store.create("gemma-balanced", "Gemma balanced")

@@ -6,6 +6,7 @@ import json
 import os
 import re
 import tempfile
+import base64
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +44,8 @@ class HermesSecretStore:
             from hermes_cli.config import save_env_value
         except ImportError as exc:  # pragma: no cover - only absent outside Hermes
             raise JailbreakError("Hermes secret writer is unavailable") from exc
-        save_env_value(name, value)
+        encoded = "b64v1:" + base64.b64encode(value.encode("utf-8")).decode("ascii")
+        save_env_value(name, encoded)
         try:
             self.env_path.chmod(0o600)
         except OSError:
@@ -56,8 +58,20 @@ class HermesSecretStore:
             raise JailbreakError("python-dotenv is unavailable") from exc
         if not self.env_path.exists():
             return ""
-        value = dotenv_values(self.env_path).get(name)
-        return str(value or "")
+        value = str(dotenv_values(self.env_path).get(name) or "")
+        if not value.startswith("b64v1:"):
+            return ""
+        try:
+            return base64.b64decode(value[6:], validate=True).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            return ""
+
+    def delete(self, name: str) -> None:
+        try:
+            from hermes_cli.config import remove_env_value
+        except ImportError as exc:  # pragma: no cover - only absent outside Hermes
+            raise JailbreakError("Hermes secret writer is unavailable") from exc
+        remove_env_value(name)
 
 
 class JailbreakStore:
@@ -175,7 +189,10 @@ class JailbreakStore:
         if len(clean) > 16000:
             raise JailbreakError("injection text exceeds 16000 characters")
         ref = recipe["techniques"][technique]["secret_ref"]
-        self.secrets.set(ref, clean)
+        if clean:
+            self.secrets.set(ref, clean)
+        else:
+            self.secrets.delete(ref)
         recipe["techniques"][technique]["configured"] = bool(clean)
         self._save(data)
         return next(item for item in self.list()["recipes"] if item["id"] == rid)
@@ -217,4 +234,3 @@ class JailbreakStore:
                 if value:
                     result[kind] = value
         return result
-
