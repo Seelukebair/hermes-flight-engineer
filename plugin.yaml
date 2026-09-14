@@ -1,5 +1,5 @@
 name: flight-engineer
-version: "0.4.1"
+version: "0.4.2"
 description: "Validated inference profiles, guarded switching, and profile-aware prompt recipes."
 author: "Luke Bair"
 kind: standalone

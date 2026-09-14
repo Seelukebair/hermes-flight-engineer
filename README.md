@@ -28,6 +28,8 @@ simultaneously loaded models.
   methods, a compact reusable library, and a link to native MoA settings.
   Existing text fields use a reusable pencil, text box, Save, and Cancel
   interaction; runtime settings retain their separate save action.
+  Locked-profile duplication is collapsed behind `Create editable tuning copy`
+  with labeled name/id fields; profile actions use compact, normal typography.
 - Root-owned control wrapper: permits named profile operations and bounded JSON
   edits on stdin; no arbitrary shell, paths, images, force switch, or services.
 

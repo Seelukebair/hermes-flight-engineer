@@ -166,17 +166,23 @@
                 return h("button", { key: recipe.id, type: "button", onClick: function () { props.onAssignJailbreak(profile.id, recipe.id); setMethodPickerOpen(false); setMethodSearch(""); } },
                   h("span", null, recipe.name), h(TypeTag, { type: recipe.type }));
               }) : h("span", { className: "flight-engineer-helper" }, "No matching saved methods. Create one in the library below."))) : null)),
-        locked ? h("div", { className: "flight-engineer-clone" },
-          h("input", { value: cloneLabel, "aria-label": "New tuning profile name", onChange: function (e) { setCloneLabel(e.target.value); } }),
-          h("input", { value: cloneId, "aria-label": "New tuning profile id", onChange: function (e) { setCloneId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } }),
-          h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onClone(profile.id, cloneId, cloneLabel); } }, "Duplicate for tuning")) : null,
-        h("div", { className: "flight-engineer-actions" },
+        h("section", { className: "flight-engineer-profile-actions" },
+          h("div", { className: "flight-engineer-profile-actions-heading" },
+            h("strong", null, "Profile actions"),
+            h("span", null, profile.active ? "This profile is currently loaded." : "Loading changes the local model backend.")),
+          locked ? h("details", { className: "flight-engineer-clone" },
+            h("summary", null, "Create editable tuning copy"),
+            h("div", { className: "flight-engineer-clone-form" },
+              h(Field, { label: "Copy name" }, h("input", { value: cloneLabel, "aria-label": "New tuning profile name", onChange: function (e) { setCloneLabel(e.target.value); } })),
+              h(Field, { label: "Internal profile id" }, h("input", { value: cloneId, "aria-label": "New tuning profile id", onChange: function (e) { setCloneId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")); } })),
+              h(Button, { outlined: true, disabled: props.busy || !cloneLabel.trim() || !cloneId.trim(), onClick: function () { props.onClone(profile.id, cloneId, cloneLabel); } }, "Create copy"))) : null,
+          h("div", { className: "flight-engineer-actions" },
           !locked ? h(Button, { outlined: true, disabled: props.busy || !runtimeChanged, onClick: function () {
             const runtime = {}; runtimeKeys.forEach(function (key) { if (draft[key] !== profile[key]) runtime[key] = draft[key]; });
             props.onSave(profile.id, { runtime: runtime });
           } }, "Save settings") : null,
-          h(Button, { outlined: true, disabled: props.busy || profile.default, onClick: function () { props.onDefault(profile.id); } }, profile.default ? "Default" : "Make default"),
-          h(Button, { disabled: props.busy || !props.confirmed, onClick: function () { profile.active ? props.onApply(profile.id) : props.onSwitch(profile.id); } }, profile.active ? "Apply & reload" : "Load profile"))));
+          !profile.default ? h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onDefault(profile.id); } }, "Make default after reboot") : null,
+          h(Button, { disabled: props.busy || !props.confirmed, onClick: function () { profile.active ? props.onApply(profile.id) : props.onSwitch(profile.id); } }, profile.active ? "Reload active profile" : "Load profile")))));
   }
 
   const injectionHelp = {

@@ -65,8 +65,15 @@
 .flight-engineer-stepper-controls input[type="number"]::-webkit-inner-spin-button,.flight-engineer-stepper-controls input[type="number"]::-webkit-outer-spin-button { margin:0; -webkit-appearance:none; }
 .flight-engineer-stepper-controls button:hover:not(:disabled) { background:hsl(var(--primary)/.13); color:hsl(var(--primary)); }
 .flight-engineer-stepper-controls button:disabled { opacity:.38; cursor:not-allowed; }
-.flight-engineer-clone { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:.5rem; margin-top:.65rem; }
-.flight-engineer-profile-body>.flight-engineer-actions { margin-top:.65rem; }
+.flight-engineer-profile-actions { display:grid; grid-template-columns:minmax(14rem,1fr) auto; align-items:end; gap:.55rem 1rem; margin-top:.7rem; padding-top:.6rem; border-top:1px solid hsl(var(--border)); }
+.flight-engineer-profile-actions-heading { grid-column:1/-1; display:flex; align-items:baseline; justify-content:space-between; gap:.75rem; }
+.flight-engineer-profile-actions-heading strong { font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; }
+.flight-engineer-profile-actions-heading span { color:hsl(var(--muted-foreground)); font-size:.68rem; }
+.flight-engineer-clone { min-width:0; }
+.flight-engineer-clone>summary { display:inline-flex; width:auto; padding:.35rem .5rem; border:1px solid hsl(var(--border)); border-radius:4px; color:hsl(var(--muted-foreground)); font-size:.7rem; font-weight:600; cursor:pointer; }
+.flight-engineer-clone-form { display:grid; grid-template-columns:minmax(12rem,1fr) minmax(10rem,.8fr) auto; align-items:end; gap:.45rem; margin-top:.45rem; }
+.flight-engineer-profile-actions>.flight-engineer-actions { grid-column:2; align-self:end; }
+.flight-engineer-profile-actions>.flight-engineer-actions button,.flight-engineer-clone-form button { min-height:1.9rem!important; padding:.35rem .7rem!important; font-family:inherit!important; font-size:.7rem!important; font-weight:600!important; letter-spacing:0!important; line-height:1.1!important; text-transform:none!important; white-space:nowrap; }
 .flight-engineer-confirm { display:flex; align-items:center; gap:.5rem; color:hsl(var(--muted-foreground)); font-size:.7rem; }
 .flight-engineer-error,.flight-engineer-notice { border-left:2px solid; padding:.4rem .65rem; font-size:.75rem; }
 .flight-engineer-error { color:hsl(var(--destructive)); }
@@ -135,4 +142,4 @@
 @media (max-width:1150px) { .flight-engineer-meter-layout { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:900px) { .flight-engineer-summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .flight-engineer-profile-identity { grid-template-columns:1fr; gap:.25rem; } }
 @media (max-width:700px) { .flight-engineer-fields { grid-template-columns:1fr; } .flight-engineer-stepper { grid-template-columns:1fr; gap:.3rem; } .flight-engineer-method-selector-tools { grid-template-columns:1fr; } .flight-engineer-method-filters { flex-wrap:wrap; } }
-@media (max-width:600px) { .flight-engineer-meter-layout,.flight-engineer-clone,.flight-engineer-create-row,.flight-engineer-recipe-grid,.flight-engineer-type-tabs { grid-template-columns:1fr; } .flight-engineer-summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .flight-engineer-summary .flight-engineer-stat:nth-child(3) { grid-column:1/-1; } .flight-engineer-profile-head,.flight-engineer-profile summary,.flight-engineer-recipe summary { align-items:flex-start; flex-direction:column; } .flight-engineer-summary-actions { width:100%; justify-content:space-between; } }
+@media (max-width:600px) { .flight-engineer-meter-layout,.flight-engineer-create-row,.flight-engineer-recipe-grid,.flight-engineer-type-tabs,.flight-engineer-profile-actions,.flight-engineer-clone-form { grid-template-columns:1fr; } .flight-engineer-profile-actions>.flight-engineer-actions { grid-column:1; } .flight-engineer-summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .flight-engineer-summary .flight-engineer-stat:nth-child(3) { grid-column:1/-1; } .flight-engineer-profile-head,.flight-engineer-profile summary,.flight-engineer-recipe summary,.flight-engineer-profile-actions-heading { align-items:flex-start; flex-direction:column; } .flight-engineer-summary-actions { width:100%; justify-content:space-between; } }
