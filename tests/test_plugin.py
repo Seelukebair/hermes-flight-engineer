@@ -68,7 +68,7 @@ class PluginTests(unittest.TestCase):
         self.assertIn("Max concurrent inference", dashboard)
         self.assertIn("Live inference", dashboard)
         self.assertIn("Make default", dashboard)
-        self.assertIn("Jailbreak library", dashboard)
+        self.assertIn("Jailbreak methods", dashboard)
         self.assertIn("Starts the model's private reasoning channel", dashboard)
         self.assertNotIn('profile.active ? "active" : profile.status', dashboard)
         self.assertIn('exec "$MANAGER" update "$profile"', wrapper)

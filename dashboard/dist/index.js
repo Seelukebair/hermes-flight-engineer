@@ -94,7 +94,7 @@
           h("span", { className: "flight-engineer-chevron", "aria-hidden": "true" }, "v"))),
       h("div", { className: "flight-engineer-profile-body" },
         h("div", { className: "flight-engineer-profile-meta" }, profile.description),
-        locked ? h("div", { className: "flight-engineer-lock-note" }, "Accepted production runtime is locked. Duplicate it before tuning.") : null,
+        locked ? h("div", { className: "flight-engineer-lock-note" }, "Validated runtime settings are locked. Duplicate this profile before tuning.") : null,
         h(SettingSection, { title: "Runtime capacity" },
           h(Stepper, { label: "Max concurrent inference", value: draft.parallel_slots, min: 1, max: 8, disabled: locked, onChange: function (v) { setValue("parallel_slots", v); } }),
           h(Stepper, { label: "Context size", value: draft.context_length, min: 8192, max: 1048576, step: 8192, disabled: locked, onChange: function (v) { setValue("context_length", v); } }),
@@ -181,9 +181,9 @@
     const [activeType, setActiveType] = useState("system_framing");
     const visibleRecipes = data.recipes.filter(function (recipe) { return recipe.type === activeType; });
     const header = h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" },
-        h("div", null, h(CardTitle, null, "Jailbreak library"), h("div", { className: "flight-engineer-stat-label" }, "Reusable, model-labeled injection recipes; protected text is write-only")),
+        h("div", null, h(CardTitle, null, "Jailbreak methods"), h("div", { className: "flight-engineer-stat-label" }, "Choose one of three injection types; protected text is write-only")),
         h("label", { className: "flight-engineer-toggle" }, h("input", { type: "checkbox", checked: Boolean(data.enabled), disabled: props.busy,
-          onChange: function (e) { props.onConfigure({ enabled: e.target.checked }); } }), h("span", null, data.enabled ? "Injection active" : "Injection off"))));
+          onChange: function (e) { props.onConfigure({ enabled: e.target.checked }); } }), h("span", null, data.enabled ? "Methods active" : "All methods off"))));
     const content = h(CardContent, null,
         h("div", { className: "flight-engineer-warning" }, "Prompt injection can reduce refusals, but it can also weaken tool discipline or response quality. Recipes apply only to explicitly compatible and assigned local profiles."),
         h("div", { className: "flight-engineer-type-tabs", role: "tablist", "aria-label": "Injection type" }, Object.keys(injectionLabels).map(function (kind) {
