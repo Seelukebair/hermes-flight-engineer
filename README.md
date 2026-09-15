@@ -28,6 +28,9 @@ simultaneously loaded models.
 methods, a compact reusable library, and a link to native MoA settings.
   Existing text fields use a reusable pencil, text box, Save, and Cancel
   interaction; runtime settings retain their separate save action.
+  The header also exposes a guarded runtime update drawer that stages an
+  immutable llama.cpp image, performs a reversible live smoke test, and only
+  then permits promotion into the selected profile.
   Locked-profile duplication is collapsed behind `Create editable tuning copy`
   with labeled name/id fields; profile actions use compact, normal typography.
 - Root-owned control wrapper: permits named profile operations and bounded JSON
@@ -83,6 +86,24 @@ profile. Profile manifests and the manager remain root-owned.
 at the next host boot; normal service reloads preserve the current selection.
 Saving an active tuning profile does not silently restart inference. Use the
 separate confirmed `Apply & reload` action.
+
+## Runtime Updates
+
+Each profile may declare a `runtime_update_channel` that points to a reviewed
+llama.cpp container channel, while `image` remains pinned to an immutable
+SHA-256 digest. `Check & stage` pulls that channel, resolves its immutable
+digest, and checks the command-line capabilities required by the profile.
+
+`Test candidate` requires the dashboard's interruption confirmation. It loads
+the candidate through a temporary experimental profile, runs the manager's
+health, model-alias, deterministic inference, and dependent-service checks,
+then restores the original profile. A failed test is never promotable.
+
+`Promote tested` changes only the selected profile's image pin and writes a
+root-owned backup. It does not reload inference; the operator can apply the
+profile separately. Models, projectors, Python packages, drivers, and host
+packages are outside this button's scope. This deliberately avoids silently
+combining runtime and model changes or installing arbitrary system software.
 
 ## Jailbreak Method Library
 

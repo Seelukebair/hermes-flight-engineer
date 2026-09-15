@@ -19,6 +19,14 @@ by the Hermes runtime account. The host installer verifies that the resolved
 manager, profile directory, and manifests are root-owned and not group/world
 writable before creating the sudo rule.
 
+Runtime updates use the same bounded boundary. The root-owned helper reads a
+profile-owned `runtime_update_channel`, resolves a pulled image to an immutable
+digest, and checks the llama.cpp flags required by the backend. A live test
+uses a temporary experimental profile and restores the original profile before
+recording a pass. Promotion requires that tested digest and an unchanged
+profile fingerprint, then creates a root-owned backup. The dashboard cannot
+provide an image name, tag, digest, path, Docker argument, or shell fragment.
+
 Jailbreak recipe metadata is stored mode `0600` under the Hermes home. Prompt
 bodies use Hermes's profile-scoped `.env` writer and are never returned by the
 dashboard or agent APIs. The dashboard shows only configured state. The

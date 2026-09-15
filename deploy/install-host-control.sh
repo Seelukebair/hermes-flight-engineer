@@ -31,6 +31,9 @@ install -d -o root -g root -m 0755 /usr/local/libexec
 install -o root -g root -m 0755 \
   "$plugin_root/deploy/flight-engineer-control" \
   /usr/local/libexec/flight-engineer-control
+install -o root -g root -m 0755 \
+  "$plugin_root/deploy/runtime-maintenance.py" \
+  /usr/local/libexec/flight-engineer-runtime-maintenance
 
 cat >/etc/sudoers.d/hermes-flight-engineer <<EOF
 ${operator} ALL=(root) NOPASSWD: /usr/local/libexec/flight-engineer-control *

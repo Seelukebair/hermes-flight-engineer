@@ -29,6 +29,11 @@ class RollbackRequest(BaseModel):
     confirm_interrupt: bool = False
 
 
+class RuntimeUpdateRequest(BaseModel):
+    profile_id: str
+    confirm_interrupt: bool = False
+
+
 class RuntimePatch(BaseModel):
     context_length: int | None = Field(default=None, ge=8192, le=1048576)
     parallel_slots: int | None = Field(default=None, ge=1, le=8)
@@ -168,6 +173,40 @@ def switch(request: SwitchRequest):
 def rollback(request: RollbackRequest):
     try:
         return FlightEngineer().rollback(confirm_interrupt=request.confirm_interrupt)
+    except FlightEngineerError as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/runtime-update/{profile_id}")
+def runtime_update_status(profile_id: str):
+    try:
+        return FlightEngineer().runtime_update(profile_id, "status")
+    except FlightEngineerError as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/runtime-update/stage")
+def runtime_update_stage(request: RuntimeUpdateRequest):
+    try:
+        return FlightEngineer().runtime_update(request.profile_id, "stage")
+    except FlightEngineerError as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/runtime-update/test")
+def runtime_update_test(request: RuntimeUpdateRequest):
+    if not request.confirm_interrupt:
+        raise HTTPException(status_code=409, detail="runtime testing interrupts local inference; confirmation is required")
+    try:
+        return FlightEngineer().runtime_update(request.profile_id, "test")
+    except FlightEngineerError as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/runtime-update/promote")
+def runtime_update_promote(request: RuntimeUpdateRequest):
+    try:
+        return FlightEngineer().runtime_update(request.profile_id, "promote")
     except FlightEngineerError as exc:
         raise _http_error(exc) from exc
 

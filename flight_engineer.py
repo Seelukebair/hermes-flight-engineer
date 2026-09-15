@@ -155,6 +155,22 @@ class FlightEngineer:
         self._run(["sudo", "-n", self.control, "set-default", profile], timeout=30)
         return self.status()
 
+    def runtime_update(self, profile_id: str, action: str = "status") -> dict[str, Any]:
+        profile = self._validate_profile_id(profile_id)
+        if action not in {"status", "stage", "test", "promote"}:
+            raise FlightEngineerError("invalid runtime update action")
+        raw = self._run(
+            ["sudo", "-n", self.control, f"runtime-{action}", profile],
+            timeout=3600 if action in {"stage", "test"} else 60,
+        )
+        try:
+            result = json.loads(raw)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise FlightEngineerError("runtime maintenance returned invalid JSON") from exc
+        if not isinstance(result, dict):
+            raise FlightEngineerError("runtime maintenance returned an invalid result")
+        return result
+
     @staticmethod
     def _url_json(url: str, *, timeout: int = 3) -> Any:
         with urllib.request.urlopen(url, timeout=timeout) as response:

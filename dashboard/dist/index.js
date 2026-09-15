@@ -296,6 +296,7 @@
     const [status, setStatus] = useState(null), [profiles, setProfiles] = useState([]), [telemetry, setTelemetry] = useState(null);
     const [jailbreaks, setJailbreaks] = useState({ enabled: false, assignments: {}, recipes: [] });
     const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
+    const [runtimeOpen, setRuntimeOpen] = useState(false), [runtimeUpdate, setRuntimeUpdate] = useState(null);
     const refresh = useCallback(async function () { try { const values = await Promise.all([request("/status"), request("/profiles"), request("/jailbreaks")]); setStatus(values[0]); setProfiles(values[1].profiles || []); setJailbreaks(values[2]); setError(""); } catch (err) { setError(String(err.message || err)); } }, []);
     const refreshTelemetry = useCallback(async function () { try { setTelemetry(await request("/telemetry")); } catch (_) { setTelemetry(null); } }, []);
     useEffect(function () { refresh(); refreshTelemetry(); }, [refresh, refreshTelemetry]);
@@ -307,6 +308,22 @@
     function cloneProfile(source, target, label) { return mutate(function () { return request("/profiles/clone", { method: "POST", body: JSON.stringify({ source_id: source, target_id: target, label: label }) }); }, "Tuning profile created."); }
     function setDefaultProfile(id) { return mutate(function () { return request("/profiles/" + encodeURIComponent(id) + "/default", { method: "POST" }); }, "Default profile changed for the next host boot."); }
     function rollbackProfile() { return mutate(function () { return request("/rollback", { method: "POST", body: JSON.stringify({ confirm_interrupt: confirmed }) }); }, "Previous profile restored."); }
+    async function loadRuntimeUpdate() {
+      if (!status || !status.active_profile) return;
+      try { setRuntimeUpdate(await request("/runtime-update/" + encodeURIComponent(status.active_profile))); setError(""); }
+      catch (err) { setError(String(err.message || err)); }
+    }
+    async function runtimeAction(action) {
+      if (!status || !status.active_profile) return;
+      setBusy(true); setError(""); setNotice("");
+      try {
+        const result = await request("/runtime-update/" + action, { method: "POST", body: JSON.stringify({ profile_id: status.active_profile, confirm_interrupt: confirmed }) });
+        setRuntimeUpdate(result);
+        setNotice(result.message || "Runtime maintenance completed.");
+        await refresh(); await refreshTelemetry();
+      } catch (err) { setError(String(err.message || err)); }
+      finally { setBusy(false); }
+    }
     function configureJailbreaks(patch) { return mutate(async function () {
       setJailbreaks(await request("/jailbreaks", { method: "PATCH", body: JSON.stringify(patch) }));
     }, "Jailbreak configuration saved."); }
@@ -334,8 +351,20 @@
     const ramPercent = sys.ram_total_mb ? sys.ram_used_mb / sys.ram_total_mb * 100 : 0, powerPercent = sys.gpu_power_limit_w ? sys.gpu_power_w / sys.gpu_power_limit_w * 100 : 0;
     const contextPercent = inf.context_per_slot ? inf.context_tokens_current / inf.context_per_slot * 100 : 0;
     return h("div", { className: "flight-engineer-page" },
-      h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Flight Engineer"), h("div", { className: "flight-engineer-stat-label" }, "Validated local inference configurations")), h("div", { className: "flight-engineer-actions" }, h(Button, { outlined: true, onClick: rollbackProfile, disabled: busy || !confirmed }, "Rollback"), h(Button, { outlined: true, onClick: refresh, disabled: busy }, "Refresh")))),
-        h(CardContent, null, h("div", { className: "flight-engineer-summary" }, h(Stat, { label: "Active profile", value: status && status.active_profile }), h(Stat, { label: "Default after reboot", value: status && status.default_profile }), h(Stat, { label: "Hermes route", value: route }), h(Stat, { label: "Context", value: status && number(status.context_length) }), h(Stat, { label: "Backend health", value: healthy ? "all services active" : "attention required" })))),
+      h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Flight Engineer"), h("div", { className: "flight-engineer-stat-label" }, "Validated local inference configurations")), h("div", { className: "flight-engineer-actions" }, h(Button, { outlined: true, onClick: function () { const opening = !runtimeOpen; setRuntimeOpen(opening); if (opening) loadRuntimeUpdate(); }, disabled: busy || !status }, "Runtime update"), h(Button, { outlined: true, onClick: rollbackProfile, disabled: busy || !confirmed }, "Rollback"), h(Button, { outlined: true, onClick: refresh, disabled: busy }, "Refresh")))),
+        h(CardContent, null, h("div", { className: "flight-engineer-summary" }, h(Stat, { label: "Active profile", value: status && status.active_profile }), h(Stat, { label: "Default after reboot", value: status && status.default_profile }), h(Stat, { label: "Hermes route", value: route }), h(Stat, { label: "Context", value: status && number(status.context_length) }), h(Stat, { label: "Backend health", value: healthy ? "all services active" : "attention required" })),
+          runtimeOpen ? h("section", { className: "flight-engineer-runtime-update" },
+            h("div", { className: "flight-engineer-runtime-copy" },
+              h("strong", null, "Pinned llama.cpp runtime"),
+              h("span", null, runtimeUpdate ? runtimeUpdate.message : "Reading runtime status...")),
+            runtimeUpdate ? h("div", { className: "flight-engineer-runtime-facts" },
+              h(Stat, { label: "Running pin", value: (runtimeUpdate.current && runtimeUpdate.current.version) || "unknown" }),
+              h(Stat, { label: "Candidate", value: (runtimeUpdate.candidate && runtimeUpdate.candidate.version) || "not staged" }),
+              h(Stat, { label: "Gate", value: runtimeUpdate.stage + (runtimeUpdate.tested ? " / tested" : "") })) : null,
+            h("div", { className: "flight-engineer-actions" },
+              h(Button, { outlined: true, disabled: busy || !runtimeUpdate, onClick: function () { runtimeAction("stage"); } }, "Check & stage"),
+              h(Button, { outlined: true, disabled: busy || !confirmed || !runtimeUpdate || runtimeUpdate.stage !== "staged", onClick: function () { runtimeAction("test"); } }, "Test candidate"),
+              h(Button, { disabled: busy || !runtimeUpdate || !runtimeUpdate.tested || runtimeUpdate.stage !== "staged", onClick: function () { runtimeAction("promote"); } }, "Promote tested"))) : null)),
       h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Live inference"), h("div", { className: "flight-engineer-stat-label" }, telemetry ? "Updates every 2 seconds" : "Telemetry unavailable")), h("div", { className: "flight-engineer-live-copy" }, number(inf.current_tokens_per_second) + " tok/s now | " + number(inf.queued) + " queued"))),
         h(CardContent, null, h("div", { className: "flight-engineer-meter-layout" },
           h(LevelMeter, { label: "Active slots", percent: slotPercent, value: number(inf.active) + " / " + number(inf.slots), minLabel: "0", maxLabel: number(inf.slots) }),

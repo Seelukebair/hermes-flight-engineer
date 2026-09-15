@@ -109,6 +109,20 @@ class FlightEngineerTests(unittest.TestCase):
         run.assert_called_once_with(["sudo", "-n", "/control", "set-default", "daily-driver"], timeout=30)
         self.assertEqual("daily-driver", result["default_profile"])
 
+    @patch.object(FlightEngineer, "_run")
+    def test_runtime_update_uses_only_bounded_control_action(self, run):
+        run.return_value = json.dumps({"stage": "staged", "tested": False})
+        result = self.engineer.runtime_update("daily-driver", "stage")
+        run.assert_called_once_with(
+            ["sudo", "-n", "/control", "runtime-stage", "daily-driver"],
+            timeout=3600,
+        )
+        self.assertEqual("staged", result["stage"])
+
+    def test_runtime_update_rejects_unknown_action(self):
+        with self.assertRaisesRegex(FlightEngineerError, "invalid runtime update action"):
+            self.engineer.runtime_update("daily-driver", "latest")
+
     def test_slot_context_tokens_combines_prompt_and_generation(self):
         slot = {
             "n_prompt_tokens": 6400,

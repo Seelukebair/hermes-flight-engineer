@@ -88,10 +88,14 @@ class PluginTests(unittest.TestCase):
         self.assertIn("Internal profile id", dashboard)
         self.assertIn("Make default after reboot", dashboard)
         self.assertIn("Reload active profile", dashboard)
+        self.assertIn("Check & stage", dashboard)
+        self.assertIn("Test candidate", dashboard)
+        self.assertIn("Promote tested", dashboard)
         self.assertNotIn("Duplicate for tuning", dashboard)
         self.assertNotIn('}, "Save name")', dashboard)
         self.assertNotIn('profile.active ? "active" : profile.status', dashboard)
         self.assertIn('exec "$MANAGER" update "$profile"', wrapper)
+        self.assertIn("runtime-status|runtime-stage|runtime-test|runtime-promote", wrapper)
         self.assertNotIn("eval ", wrapper)
 
 

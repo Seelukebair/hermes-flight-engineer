@@ -3,7 +3,7 @@
   "label": "Flight Engineer",
   "description": "Validated local inference backend profiles and service state.",
   "icon": "Gauge",
-  "version": "0.2.1",
+  "version": "0.5.0",
   "tab": {
     "path": "/flight-engineer",
     "position": "after:models"
