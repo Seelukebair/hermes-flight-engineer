@@ -91,6 +91,7 @@ class PluginTests(unittest.TestCase):
         self.assertIn("Check & stage", dashboard)
         self.assertIn("Test candidate", dashboard)
         self.assertIn("Promote tested", dashboard)
+        self.assertIn("Allow test reload", dashboard)
         self.assertNotIn("Duplicate for tuning", dashboard)
         self.assertNotIn('}, "Save name")', dashboard)
         self.assertNotIn('profile.active ? "active" : profile.status', dashboard)

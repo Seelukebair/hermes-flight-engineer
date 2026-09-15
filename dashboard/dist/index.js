@@ -362,6 +362,7 @@
               h(Stat, { label: "Candidate", value: (runtimeUpdate.candidate && runtimeUpdate.candidate.version) || "not staged" }),
               h(Stat, { label: "Gate", value: runtimeUpdate.stage + (runtimeUpdate.tested ? " / tested" : "") })) : null,
             h("div", { className: "flight-engineer-actions" },
+              h("label", { className: "flight-engineer-confirm", title: "Testing temporarily reloads the active local model, then restores it." }, h("input", { type: "checkbox", checked: confirmed, onChange: function (e) { setConfirmed(e.target.checked); } }), "Allow test reload"),
               h(Button, { outlined: true, disabled: busy || !runtimeUpdate, onClick: function () { runtimeAction("stage"); } }, "Check & stage"),
               h(Button, { outlined: true, disabled: busy || !confirmed || !runtimeUpdate || runtimeUpdate.stage !== "staged", onClick: function () { runtimeAction("test"); } }, "Test candidate"),
               h(Button, { disabled: busy || !runtimeUpdate || !runtimeUpdate.tested || runtimeUpdate.stage !== "staged", onClick: function () { runtimeAction("promote"); } }, "Promote tested"))) : null)),
