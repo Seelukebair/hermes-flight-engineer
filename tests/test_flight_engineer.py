@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import subprocess
 import tempfile
@@ -65,6 +66,32 @@ class FlightEngineerTests(unittest.TestCase):
         self.assertEqual(profiles[0]["kv_cache"], "q8_0")
         self.assertEqual(profiles[0]["model_file"], "daily.gguf")
 
+    @patch.object(FlightEngineer, "status", return_value={"default_profile": "google-marlin-no-voice"})
+    def test_vllm_default_returns_linked_preset_and_runtime(self, _):
+        profile_id = "google-marlin-no-voice"
+        (self.profiles / f"{profile_id}.json").write_text(json.dumps({
+            "id": profile_id, "backend": "vllm", "voice_enabled": False,
+            "moa_preset": "marlin-no-voice", "artifacts": {"model.safetensors": {}},
+            "runtime": {"context_length": 64000, "kv_cache": "int4_per_token_head", "cpu_offload_gb": 1.5},
+        }), encoding="utf-8")
+        defaults = [row for row in self.engineer.profiles() if row["default"]]
+        self.assertEqual(len(defaults), 1)
+        self.assertEqual(defaults[0]["moa_preset"], "marlin-no-voice")
+        self.assertEqual(defaults[0]["model_file"], "model.safetensors")
+        self.assertEqual(defaults[0]["kv_cache"], "int4_per_token_head")
+        self.assertFalse(defaults[0]["voice_enabled"])
+
+    @patch("urllib.request.urlopen")
+    def test_metrics_reads_vllm_samples_with_labels(self, urlopen):
+        urlopen.return_value = io.BytesIO(
+            b'vllm:num_requests_running{engine="0",model_name="gemma4-thinker"} 1.0\n'
+            b'vllm:kv_cache_usage_perc{engine="0",model_name="gemma4-thinker"} 0.75\n'
+            b'llamacpp:requests_deferred 2\n'
+        )
+        self.assertEqual(self.engineer._metrics(), {
+            "vllm:num_requests_running": 1, "vllm:kv_cache_usage_perc": 0.75, "requests_deferred": 2,
+        })
+
     def test_use_requires_confirmation_before_subprocess(self):
         with self.assertRaisesRegex(FlightEngineerError, "confirmation"):
             self.engineer.use("daily-driver")
@@ -104,10 +131,11 @@ class FlightEngineerTests(unittest.TestCase):
     @patch.object(FlightEngineer, "status")
     @patch.object(FlightEngineer, "_run")
     def test_set_default_is_non_interrupting(self, run, status):
-        status.return_value = {"default_profile": "daily-driver"}
+        status.return_value = {"default_profile": "daily-driver", "default_moa_preset": "default"}
         result = self.engineer.set_default("daily-driver")
         run.assert_called_once_with(["sudo", "-n", "/control", "set-default", "daily-driver"], timeout=30)
         self.assertEqual("daily-driver", result["default_profile"])
+        self.assertEqual("default", result["default_moa_preset"])
 
     @patch.object(FlightEngineer, "_run")
     def test_runtime_update_uses_only_bounded_control_action(self, run):

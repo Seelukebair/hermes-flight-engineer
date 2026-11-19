@@ -85,6 +85,11 @@ class FlightEngineer:
             if not isinstance(data, dict) or data.get("id") != path.stem:
                 continue
             runtime = data.get("runtime") if isinstance(data.get("runtime"), dict) else {}
+            backend = data.get("backend", "llama.cpp")
+            artifacts = data.get("artifacts") or {}
+            model_file = (artifacts.get("model") or {}).get("file")
+            if backend == "vllm" and "model.safetensors" in artifacts:
+                model_file = "model.safetensors"
             profiles.append({
                 "id": data["id"],
                 "label": str(data.get("label") or data["id"]),
@@ -92,6 +97,9 @@ class FlightEngineer:
                 "description": str(data.get("description") or ""),
                 "active": data["id"] == active,
                 "default": data["id"] == default,
+                "moa_preset": data.get("moa_preset"),
+                "backend": backend,
+                "voice_enabled": data.get("voice_enabled", True),
                 "context_length": runtime.get("context_length"),
                 "parallel_slots": runtime.get("parallel_slots"),
                 "gpu_layers": runtime.get("gpu_layers"),
@@ -101,7 +109,8 @@ class FlightEngineer:
                 "ubatch_size": runtime.get("ubatch_size"),
                 "image_min_tokens": runtime.get("image_min_tokens"),
                 "image_max_tokens": runtime.get("image_max_tokens"),
-                "model_file": ((data.get("artifacts") or {}).get("model") or {}).get("file"),
+                "cpu_offload_gb": runtime.get("cpu_offload_gb"),
+                "model_file": model_file,
             })
         return profiles
 
@@ -185,12 +194,16 @@ class FlightEngineer:
             "llamacpp:prompt_tokens_total", "llamacpp:prompt_tokens_cached_total",
             "llamacpp:tokens_predicted_total", "llamacpp:tokens_predicted_seconds_total",
             "llamacpp:prompt_tokens_seconds", "llamacpp:predicted_tokens_seconds",
+            "vllm:num_requests_running", "vllm:num_requests_waiting",
+            "vllm:prompt_tokens_total", "vllm:generation_tokens_total",
+            "vllm:kv_cache_usage_perc",
         }
         metrics: dict[str, float] = {}
         for line in content.splitlines():
             if line.startswith("#") or " " not in line:
                 continue
-            name, value = line.rsplit(" ", 1)
+            sample, value = line.rsplit(" ", 1)
+            name = sample.split("{", 1)[0]
             if name in wanted:
                 try:
                     metrics[name.removeprefix("llamacpp:")] = float(value)
@@ -218,12 +231,33 @@ class FlightEngineer:
         """Return only aggregate host/runtime telemetry; slot prompt data stays private."""
         try:
             metrics = self._metrics()
-            slots = self._url_json("http://127.0.0.1:8092/slots")
-            slot_rows = slots if isinstance(slots, list) else []
-            total_slots = len(slot_rows)
-            active_slots = sum(1 for slot in slot_rows if isinstance(slot, dict) and slot.get("is_processing"))
-            contexts = [int(slot.get("n_ctx") or 0) for slot in slot_rows if isinstance(slot, dict)]
-            context_current = [self._slot_context_tokens(slot) for slot in slot_rows if isinstance(slot, dict)]
+            if "vllm:num_requests_running" in metrics:
+                profile = self.status()
+                inference = {
+                    "active": int(metrics["vllm:num_requests_running"]),
+                    "queued": int(metrics.get("vllm:num_requests_waiting", 0)),
+                    "slots": profile.get("parallel_slots"),
+                    "context_per_slot": profile.get("context_length"),
+                    "kv_cache_usage_percent": metrics.get("vllm:kv_cache_usage_perc", 0) * 100,
+                    "tokens_predicted_total": int(metrics.get("vllm:generation_tokens_total", 0)),
+                    "prompt_tokens_total": int(metrics.get("vllm:prompt_tokens_total", 0)),
+                }
+            else:
+                slots = self._url_json("http://127.0.0.1:8092/slots")
+                slot_rows = [slot for slot in slots if isinstance(slot, dict)] if isinstance(slots, list) else []
+                predicted_seconds = metrics.get("tokens_predicted_seconds_total", 0)
+                inference = {
+                    "active": int(metrics.get("requests_processing", sum(bool(slot.get("is_processing")) for slot in slot_rows))),
+                    "queued": int(metrics.get("requests_deferred", 0)),
+                    "slots": len(slot_rows),
+                    "context_per_slot": max((int(slot.get("n_ctx") or 0) for slot in slot_rows), default=0),
+                    "context_tokens_current": max((self._slot_context_tokens(slot) for slot in slot_rows), default=0),
+                    "tokens_predicted_total": int(metrics.get("tokens_predicted_total", 0)),
+                    "prompt_tokens_total": int(metrics.get("prompt_tokens_total", 0)),
+                    "prompt_tokens_cached_total": int(metrics.get("prompt_tokens_cached_total", 0)),
+                    "lifetime_tokens_per_second": round(metrics.get("tokens_predicted_total", 0) / predicted_seconds, 2) if predicted_seconds else 0,
+                    "current_tokens_per_second": round(metrics.get("predicted_tokens_seconds", 0), 2),
+                }
             gpu_raw = self._run([
                 "nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit",
                 "--format=csv,noheader,nounits",
@@ -236,20 +270,8 @@ class FlightEngineer:
                     meminfo[key.rstrip(":")] = int(value)
             load_1m = float(Path("/proc/loadavg").read_text(encoding="ascii").split()[0])
             cpu_count = os.cpu_count() or 1
-            predicted_seconds = metrics.get("tokens_predicted_seconds_total", 0)
             return {
-            "inference": {
-                "active": int(metrics.get("requests_processing", active_slots)),
-                "queued": int(metrics.get("requests_deferred", 0)),
-                "slots": total_slots,
-                "context_per_slot": max(contexts, default=0),
-                "context_tokens_current": max(context_current, default=0),
-                "tokens_predicted_total": int(metrics.get("tokens_predicted_total", 0)),
-                "prompt_tokens_total": int(metrics.get("prompt_tokens_total", 0)),
-                "prompt_tokens_cached_total": int(metrics.get("prompt_tokens_cached_total", 0)),
-                "lifetime_tokens_per_second": round(metrics.get("tokens_predicted_total", 0) / predicted_seconds, 2) if predicted_seconds else 0,
-                "current_tokens_per_second": round(metrics.get("predicted_tokens_seconds", 0), 2),
-            },
+                "inference": inference,
             "system": {
                 "gpu_percent": gpu[0], "vram_used_mb": gpu[1], "vram_total_mb": gpu[2],
                 "gpu_temperature_c": gpu[3], "gpu_power_w": gpu[4], "gpu_power_limit_w": gpu[5],

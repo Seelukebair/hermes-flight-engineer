@@ -36,12 +36,11 @@ active MoA request. Treat `tuning` and `experimental` profiles as evaluations,
 not accepted production defaults. Use Hermes's native Models/MoA settings to
 choose where the stable local route participates.
 
-Active and default are distinct. `use` loads a profile immediately and is
-interrupting. `set_default` changes only the profile selected on the next host
-boot and does not interrupt current inference. Call `set_default` only when the
-user explicitly asks to make a profile the default, then report both returned
-active and default profile ids. Never imply that changing the default also
-loaded the profile.
+`use` loads a profile immediately and interrupts local inference. `set_default`
+selects the next boot profile together with its linked native Hermes MoA preset.
+The running profile and active MoA mode stay as they are. Call `set_default`
+when the user asks to make a profile the default, then report the returned
+active profile, boot profile, and linked preset when available.
 
 ## Jailbreak Recipes
 

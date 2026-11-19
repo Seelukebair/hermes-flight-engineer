@@ -28,7 +28,8 @@ def _profile_intent_context(user_message: str = "", **_: Any) -> dict[str, str] 
         "Flight Engineer backend-profile intent detected. Use the `flight_engineer` tool to call status and list "
         "before proposing a change. The stable Hermes route is gemma4-thinker-local/gemma4-thinker and may be "
         "used by native Mixture of Agents. Profiles are mutually exclusive configurations behind that route, not "
-        "simultaneously loaded MoA models. Set confirm_interrupt=true only when the user explicitly requested the "
+        "simultaneously loaded MoA models. Call set_default to select the boot profile and its linked native MoA "
+        "preset together. Set confirm_interrupt=true only when the user explicitly requested the "
         "disruptive switch. Jailbreak recipes are profile-specific and their protected text is never readable through "
         "the tool; list metadata before changing an assignment or global state. Report returned state; never infer success."
     )}
@@ -98,7 +99,7 @@ def _setup_cli(parser: Any) -> None:
     use.add_argument("--confirm-interrupt", action="store_true")
     rollback = commands.add_parser("rollback", help="Return to the preceding accepted profile")
     rollback.add_argument("--confirm-interrupt", action="store_true")
-    set_default = commands.add_parser("set-default", help="Select the profile loaded on the next host boot")
+    set_default = commands.add_parser("set-default", help="Select the boot profile and its linked Hermes MoA preset")
     set_default.add_argument("profile")
     parser.set_defaults(func=_cli_handler)
 

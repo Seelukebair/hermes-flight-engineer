@@ -96,7 +96,8 @@
 
   function ProfileRow(props) {
     const profile = props.profile;
-    const locked = profile.status === "production";
+    const vllm = profile.backend === "vllm";
+    const locked = vllm || profile.status === "production";
     const [draft, setDraft] = useState(Object.assign({}, profile));
     const [cloneId, setCloneId] = useState(profile.id + "-tuning");
     const [cloneLabel, setCloneLabel] = useState(profile.label + " (tuning)");
@@ -130,8 +131,15 @@
           h("span", { className: "flight-engineer-chevron", "aria-hidden": "true" }, "v"))),
       h("div", { className: "flight-engineer-profile-body" },
         h("div", { className: "flight-engineer-profile-meta" }, profile.description),
-        locked ? h("div", { className: "flight-engineer-lock-note" }, "Validated runtime settings are locked. Duplicate this profile before tuning.") : null,
-        h(SettingSection, { title: "Runtime capacity" },
+        profile.moa_preset ? h("div", { className: "flight-engineer-profile-meta" }, "Linked Hermes MoA preset: " + profile.moa_preset) : null,
+        vllm ? h(SettingSection, { title: "vLLM runtime" },
+          h(Stat, { label: "Context", value: number(profile.context_length) }),
+          h(Stat, { label: "Max concurrent inference", value: profile.parallel_slots }),
+          h(Stat, { label: "KV cache precision", value: profile.kv_cache }),
+          h(Stat, { label: "CPU offload", value: number(profile.cpu_offload_gb) + " GiB" }),
+          h(Stat, { label: "Voice", value: profile.voice_enabled ? "Enabled" : "Off" })) : h(React.Fragment, null,
+          locked ? h("div", { className: "flight-engineer-lock-note" }, "Validated runtime settings are locked. Duplicate this profile before tuning.") : null,
+          h(SettingSection, { title: "Runtime capacity" },
           h(Stepper, { label: "Max concurrent inference", value: draft.parallel_slots, min: 1, max: 8, disabled: locked, onChange: function (v) { setValue("parallel_slots", v); } }),
           h(Stepper, { label: "Context size", value: draft.context_length, min: 8192, max: 1048576, step: 8192, disabled: locked, onChange: function (v) { setValue("context_length", v); } }),
           h(Stepper, { label: "GPU layers", value: draft.gpu_layers, min: 1, max: 999, disabled: locked, onChange: function (v) { setValue("gpu_layers", v); } })),
@@ -144,7 +152,7 @@
           h(Stepper, { label: "Micro-batch size", value: draft.ubatch_size, min: 32, max: 2048, step: 32, disabled: locked, onChange: function (v) { setValue("ubatch_size", v); } })),
         h(SettingSection, { title: "Vision token budget" },
           h(Stepper, { label: "Minimum image tokens", value: draft.image_min_tokens, min: 64, max: 4096, step: 64, disabled: locked, onChange: function (v) { setValue("image_min_tokens", v); } }),
-          h(Stepper, { label: "Maximum image tokens", value: draft.image_max_tokens, min: 64, max: 4096, step: 64, disabled: locked, onChange: function (v) { setValue("image_max_tokens", v); } })),
+          h(Stepper, { label: "Maximum image tokens", value: draft.image_max_tokens, min: 64, max: 4096, step: 64, disabled: locked, onChange: function (v) { setValue("image_max_tokens", v); } }))),
         h(SettingSection, { title: "Jailbreak methods" },
           h("div", { className: "flight-engineer-method-manager" },
             h("p", { className: "flight-engineer-helper" }, "Attach up to one saved entry of each type. Adding another entry of the same type replaces the current one."),
@@ -170,7 +178,7 @@
           h("div", { className: "flight-engineer-profile-actions-heading" },
             h("strong", null, "Profile actions"),
             h("span", null, profile.active ? "This profile is currently loaded." : "Loading changes the local model backend.")),
-          locked ? h("details", { className: "flight-engineer-clone" },
+          locked && !vllm ? h("details", { className: "flight-engineer-clone" },
             h("summary", null, "Create editable tuning copy"),
             h("div", { className: "flight-engineer-clone-form" },
               h(Field, { label: "Copy name" }, h("input", { value: cloneLabel, "aria-label": "New tuning profile name", onChange: function (e) { setCloneLabel(e.target.value); } })),
@@ -181,7 +189,7 @@
             const runtime = {}; runtimeKeys.forEach(function (key) { if (draft[key] !== profile[key]) runtime[key] = draft[key]; });
             props.onSave(profile.id, { runtime: runtime });
           } }, "Save settings") : null,
-          !profile.default ? h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onDefault(profile.id); } }, "Make default after reboot") : null,
+          !profile.default ? h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onDefault(profile.id); } }, "Make default") : null,
           h(Button, { disabled: props.busy || !props.confirmed, onClick: function () { profile.active ? props.onApply(profile.id) : props.onSwitch(profile.id); } }, profile.active ? "Reload active profile" : "Load profile")))));
   }
 
@@ -306,7 +314,7 @@
     function applyProfile(id) { return mutate(function () { return request("/profiles/" + encodeURIComponent(id) + "/apply", { method: "POST", body: JSON.stringify({ profile_id: id, confirm_interrupt: confirmed }) }); }, "Saved profile reloaded."); }
     function saveProfile(id, patch) { return mutate(function () { return request("/profiles/" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify(patch) }); }, "Profile saved. Reload the active profile to apply runtime changes."); }
     function cloneProfile(source, target, label) { return mutate(function () { return request("/profiles/clone", { method: "POST", body: JSON.stringify({ source_id: source, target_id: target, label: label }) }); }, "Tuning profile created."); }
-    function setDefaultProfile(id) { return mutate(function () { return request("/profiles/" + encodeURIComponent(id) + "/default", { method: "POST" }); }, "Default profile changed for the next host boot."); }
+    function setDefaultProfile(id) { return mutate(function () { return request("/profiles/" + encodeURIComponent(id) + "/default", { method: "POST" }); }, "Default saved. The backend selection takes effect at the next host boot."); }
     function rollbackProfile() { return mutate(function () { return request("/rollback", { method: "POST", body: JSON.stringify({ confirm_interrupt: confirmed }) }); }, "Previous profile restored."); }
     async function loadRuntimeUpdate() {
       if (!status || !status.active_profile) return;
@@ -344,16 +352,22 @@
       return mutate(function () { return request("/jailbreaks/clone", { method: "POST", body: JSON.stringify({ source_id: recipe.id, target_id: target, name: name }) }); }, "Entry cloned with its protected text.");
     }
     const services = status && status.services ? status.services : {};
-    const healthy = Object.keys(services).length > 0 && Object.values(services).every(function (v) { return v === "active"; });
+    const expectedServices = Object.entries(services).filter(function (entry) {
+      return !(status && status.voice_enabled === false && entry[0] === "cosyvoice2");
+    });
+    const healthy = expectedServices.length > 0 && expectedServices.every(function (entry) { return entry[1] === "active"; });
     const route = status && status.stable_route ? status.stable_route.provider + "/" + status.stable_route.model : "unknown";
+    const defaultProfile = profiles.find(function (profile) { return profile.default; });
+    const defaultPreset = status && status.default_moa_preset;
+    const defaultLabel = defaultProfile ? defaultProfile.label + (defaultPreset ? " / " + defaultPreset : "") : status && status.default_profile;
     const inf = telemetry ? telemetry.inference : {}, sys = telemetry ? telemetry.system : {};
     const slotPercent = inf.slots ? inf.active / inf.slots * 100 : 0, vramPercent = sys.vram_total_mb ? sys.vram_used_mb / sys.vram_total_mb * 100 : 0;
     const ramPercent = sys.ram_total_mb ? sys.ram_used_mb / sys.ram_total_mb * 100 : 0, powerPercent = sys.gpu_power_limit_w ? sys.gpu_power_w / sys.gpu_power_limit_w * 100 : 0;
     const contextPercent = inf.context_per_slot ? inf.context_tokens_current / inf.context_per_slot * 100 : 0;
     return h("div", { className: "flight-engineer-page" },
-      h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Flight Engineer"), h("div", { className: "flight-engineer-stat-label" }, "Validated local inference configurations")), h("div", { className: "flight-engineer-actions" }, h(Button, { outlined: true, onClick: function () { const opening = !runtimeOpen; setRuntimeOpen(opening); if (opening) loadRuntimeUpdate(); }, disabled: busy || !status }, "Runtime update"), h(Button, { outlined: true, onClick: rollbackProfile, disabled: busy || !confirmed }, "Rollback"), h(Button, { outlined: true, onClick: refresh, disabled: busy }, "Refresh")))),
-        h(CardContent, null, h("div", { className: "flight-engineer-summary" }, h(Stat, { label: "Active profile", value: status && status.active_profile }), h(Stat, { label: "Default after reboot", value: status && status.default_profile }), h(Stat, { label: "Hermes route", value: route }), h(Stat, { label: "Context", value: status && number(status.context_length) }), h(Stat, { label: "Backend health", value: healthy ? "all services active" : "attention required" })),
-          runtimeOpen ? h("section", { className: "flight-engineer-runtime-update" },
+      h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Flight Engineer"), h("div", { className: "flight-engineer-stat-label" }, "Validated local inference configurations")), h("div", { className: "flight-engineer-actions" }, status && status.backend !== "vllm" ? h(Button, { outlined: true, onClick: function () { const opening = !runtimeOpen; setRuntimeOpen(opening); if (opening) loadRuntimeUpdate(); }, disabled: busy }, "Runtime update") : null, h(Button, { outlined: true, onClick: rollbackProfile, disabled: busy || !confirmed }, "Rollback"), h(Button, { outlined: true, onClick: refresh, disabled: busy }, "Refresh")))),
+        h(CardContent, null, h("div", { className: "flight-engineer-summary" }, h(Stat, { label: "Active profile", value: status && status.active_profile }), h(Stat, { label: "Default (backend / MoA)", value: defaultLabel }), h(Stat, { label: "Hermes route", value: route }), h(Stat, { label: "Context", value: status && number(status.context_length) }), h(Stat, { label: "Backend health", value: healthy ? "all services active" : "attention required" })),
+          runtimeOpen && status && status.backend !== "vllm" ? h("section", { className: "flight-engineer-runtime-update" },
             h("div", { className: "flight-engineer-runtime-copy" },
               h("strong", null, "Pinned llama.cpp runtime"),
               h("span", null, runtimeUpdate ? runtimeUpdate.message : "Reading runtime status...")),
@@ -366,10 +380,12 @@
               h(Button, { outlined: true, disabled: busy || !runtimeUpdate, onClick: function () { runtimeAction("stage"); } }, "Check & stage"),
               h(Button, { outlined: true, disabled: busy || !confirmed || !runtimeUpdate || runtimeUpdate.stage !== "staged", onClick: function () { runtimeAction("test"); } }, "Test candidate"),
               h(Button, { disabled: busy || !runtimeUpdate || !runtimeUpdate.tested || runtimeUpdate.stage !== "staged", onClick: function () { runtimeAction("promote"); } }, "Promote tested"))) : null)),
-      h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Live inference"), h("div", { className: "flight-engineer-stat-label" }, telemetry ? "Updates every 2 seconds" : "Telemetry unavailable")), h("div", { className: "flight-engineer-live-copy" }, number(inf.current_tokens_per_second) + " tok/s now | " + number(inf.queued) + " queued"))),
+      h(Card, null, h(CardHeader, null, h("div", { className: "flight-engineer-profile-head" }, h("div", null, h(CardTitle, null, "Live inference"), h("div", { className: "flight-engineer-stat-label" }, telemetry ? "Updates every 2 seconds" : "Telemetry unavailable")), h("div", { className: "flight-engineer-live-copy" }, (inf.current_tokens_per_second == null ? "" : number(inf.current_tokens_per_second) + " tok/s now | ") + number(inf.queued) + " queued"))),
         h(CardContent, null, h("div", { className: "flight-engineer-meter-layout" },
           h(LevelMeter, { label: "Active slots", percent: slotPercent, value: number(inf.active) + " / " + number(inf.slots), minLabel: "0", maxLabel: number(inf.slots) }),
-          h(LevelMeter, { label: "Context", percent: contextPercent, value: number(inf.context_tokens_current) + " / " + number(inf.context_per_slot), minLabel: "0", maxLabel: number(inf.context_per_slot) }),
+          inf.kv_cache_usage_percent == null ?
+            h(LevelMeter, { label: "Context", percent: contextPercent, value: number(inf.context_tokens_current) + " / " + number(inf.context_per_slot), minLabel: "0", maxLabel: number(inf.context_per_slot) }) :
+            h(LevelMeter, { label: "KV cache", percent: inf.kv_cache_usage_percent, value: number(inf.kv_cache_usage_percent) + "%", minLabel: "0%", maxLabel: "100%" }),
           h(LevelMeter, { label: "GPU load", percent: sys.gpu_percent, value: number(sys.gpu_percent) + "% | " + number(sys.gpu_temperature_c) + " C", minLabel: "0%", maxLabel: "100%" }),
           h(LevelMeter, { label: "VRAM", percent: vramPercent, value: number(sys.vram_used_mb) + " / " + number(sys.vram_total_mb) + " MB", minLabel: "0", maxLabel: number(sys.vram_total_mb) + " MB" }),
           h(LevelMeter, { label: "GPU power", percent: powerPercent, value: number(sys.gpu_power_w) + " W", minLabel: "0 W", maxLabel: number(sys.gpu_power_limit_w) + " W" }),

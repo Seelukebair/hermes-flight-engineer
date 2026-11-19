@@ -82,8 +82,9 @@ the root-owned manager from an 8 KiB JSON request on stdin. Every edit is backed
 up; accepted production runtime settings must first be duplicated to a tuning
 profile. Profile manifests and the manager remain root-owned.
 
-`Load profile` activates a profile now. `Make default` selects what loads once
-at the next host boot; normal service reloads preserve the current selection.
+`Load profile` activates a profile now. `Make default` selects what loads at
+host boot and sets the profile's linked Hermes Mixture of Agents preset as the
+native MoA default. It leaves the running backend and active MoA mode as they are.
 Saving an active tuning profile does not silently restart inference. Use the
 separate confirmed `Apply & reload` action.
 
@@ -144,11 +145,13 @@ rescan is sufficient for later frontend-only changes.
 
 ## Mixture Of Agents
 
-Use Hermes's native Models settings or `hermes moa configure`. Add
-`gemma4-thinker-local/gemma4-thinker` as a reference or aggregator when the
-active local profile is suitable. Flight Engineer does not edit or duplicate
-the MoA preset schema. It rejects a switch while the local endpoint reports an
-active request.
+Use Hermes's native Models settings or `hermes moa configure` to edit presets.
+Add `gemma4-thinker-local/gemma4-thinker` as a reference or aggregator when
+appropriate for the linked backend. A production profile can name its Hermes
+preset with `moa_preset`. Flight Engineer's single default action sets the
+backend boot profile and the linked preset. The host reconciles the native MoA
+default from the selected profile at startup. Flight Engineer rejects a live
+backend switch while the local endpoint reports an active request.
 
 ## Test
 

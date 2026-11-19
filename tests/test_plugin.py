@@ -22,7 +22,7 @@ class FakeContext:
     def __init__(self):
         self.tool = None
         self.skill = None
-        self.hook = None
+        self.hooks = []
         self.cli = None
 
     def register_tool(self, **kwargs):
@@ -32,7 +32,7 @@ class FakeContext:
         self.skill = args
 
     def register_hook(self, *args):
-        self.hook = args
+        self.hooks.append(args)
 
     def register_cli_command(self, **kwargs):
         self.cli = kwargs
@@ -49,7 +49,7 @@ class PluginTests(unittest.TestCase):
         PLUGIN.register(context)
         self.assertEqual(context.tool["name"], "flight_engineer")
         self.assertEqual(context.skill[0], "flight-engineer")
-        self.assertEqual(context.hook[0], "pre_llm_call")
+        self.assertIn(("pre_llm_call", PLUGIN._profile_intent_context), context.hooks)
         self.assertEqual(context.cli["name"], "flight-engineer")
 
     def test_tool_and_cli_expose_default_selection(self):
@@ -86,7 +86,8 @@ class PluginTests(unittest.TestCase):
         self.assertIn("Cancel edit", dashboard)
         self.assertIn("Create editable tuning copy", dashboard)
         self.assertIn("Internal profile id", dashboard)
-        self.assertIn("Make default after reboot", dashboard)
+        self.assertIn("Linked Hermes MoA preset", dashboard)
+        self.assertEqual(dashboard.count('}, "Make default")'), 1)
         self.assertIn("Reload active profile", dashboard)
         self.assertIn("Check & stage", dashboard)
         self.assertIn("Test candidate", dashboard)
