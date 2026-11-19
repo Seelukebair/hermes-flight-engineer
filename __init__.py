@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from . import assist_work
 from .flight_engineer import FlightEngineer, FlightEngineerError
 from .jailbreaks import JailbreakError, JailbreakStore
 
@@ -132,6 +133,10 @@ def register(ctx: Any) -> None:
     skill = Path(__file__).parent / "skills" / "flight-engineer" / "SKILL.md"
     ctx.register_skill("flight-engineer", skill)
     ctx.register_hook("pre_llm_call", _profile_intent_context)
+    ctx.register_hook("pre_gateway_dispatch", assist_work.track_handoff)
+    ctx.register_hook("pre_llm_call", assist_work.supply_status)
+    ctx.register_hook("on_interim_message", assist_work.record_finding)
+    ctx.register_hook("post_llm_call", assist_work.record_result)
     ctx.register_cli_command(
         name="flight-engineer",
         help="Manage validated inference backend profiles",
