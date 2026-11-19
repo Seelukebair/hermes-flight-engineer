@@ -189,7 +189,7 @@
             const runtime = {}; runtimeKeys.forEach(function (key) { if (draft[key] !== profile[key]) runtime[key] = draft[key]; });
             props.onSave(profile.id, { runtime: runtime });
           } }, "Save settings") : null,
-          !profile.default ? h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onDefault(profile.id); } }, "Make default") : null,
+          !profile.default && (!vllm || profile.status === "production") ? h(Button, { outlined: true, disabled: props.busy, onClick: function () { props.onDefault(profile.id); } }, "Make default") : null,
           h(Button, { disabled: props.busy || !props.confirmed, onClick: function () { profile.active ? props.onApply(profile.id) : props.onSwitch(profile.id); } }, profile.active ? "Reload active profile" : "Load profile")))));
   }
 
