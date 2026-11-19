@@ -162,3 +162,20 @@ hermes plugins compat .
 ## License
 
 MIT
+
+## Optional Home Assistant prompt warmup
+
+The Jarvis deployment can enable `deploy/flight-engineer-assist-warmup.service`
+to prime the Assist prompt once after Hermes Gateway starts. The helper reads
+the current Hermes default, waits for its local OpenAI-compatible endpoint to
+advertise that model, and sends a synthetic text request through the configured
+Home Assistant conversation agent. Hosted defaults are skipped. The request
+does not invoke playback and there is no periodic timer.
+
+Review the unit's paths and operator account before installing it under
+`/etc/systemd/system/`. Run `systemctl daemon-reload` and enable the unit
+to link it to `hermes-gateway.service`. Disable the unit to turn off warmup.
+Set `FLIGHT_ENGINEER_GATEWAY_HEALTH_URL` in a unit override if the gateway
+health endpoint differs from `http://127.0.0.1:8642/health`.
+The helper uses the existing `HASS_URL` and `HASS_TOKEN` from Hermes's
+protected environment file.
