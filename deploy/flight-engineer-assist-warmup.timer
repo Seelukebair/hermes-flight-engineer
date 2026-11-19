@@ -1,0 +1,9 @@
+[Unit]
+Description=Keep the local Assist prompt warm
+
+[Timer]
+OnActiveSec=30min
+OnUnitInactiveSec=30min
+
+[Install]
+WantedBy=timers.target
